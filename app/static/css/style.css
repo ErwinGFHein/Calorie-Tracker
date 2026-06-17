@@ -1,0 +1,62 @@
+/* Custom styling to supplement Tailwind CSS */
+
+:root {
+    --glass-bg: rgba(30, 41, 59, 0.45);
+    --glass-border: rgba(255, 255, 255, 0.08);
+}
+
+/* Custom Scrollbar for modern dark theme */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.6);
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.3);
+    border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(99, 102, 241, 0.6);
+}
+
+/* Glassmorphism panel styling */
+.glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+}
+
+.glass-input {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-input:focus {
+    outline: none;
+    border-color: rgba(99, 102, 241, 0.6);
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.25);
+    background: rgba(15, 23, 42, 0.85);
+}
+
+/* Animations & Transitions */
+@keyframes pulse-glow {
+    0%, 100% {
+        opacity: 0.15;
+    }
+    50% {
+        opacity: 0.3;
+    }
+}
+
+.glow-glow {
+    animation: pulse-glow 8s infinite alternate ease-in-out;
+}
+
+/* Progressive growth transition for progress bars */
+.progress-bar-transition {
+    transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}

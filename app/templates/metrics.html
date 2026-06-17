@@ -1,0 +1,109 @@
+<!-- Calories -->
+<div class="glass-panel p-5 rounded-2xl relative overflow-hidden flex flex-col justify-between min-h-[140px] border border-slate-800/60 shadow-lg">
+    <div class="absolute -right-8 -top-8 w-24 h-24 bg-indigo-500/10 rounded-full blur-xl glow-glow"></div>
+    <div>
+        <div class="flex justify-between items-start">
+            <span class="text-xs font-semibold tracking-wide uppercase text-indigo-300/80">Energy Intake</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-900 text-slate-350 font-semibold border border-slate-800">
+                Target: {{ metrics.targets.calories | int }}
+            </span>
+        </div>
+        <div class="mt-3 flex items-baseline gap-1">
+            <span class="text-3xl font-extrabold tracking-tight text-white">{{ metrics.totals.calories }}</span>
+            <span class="text-xs text-slate-400 font-medium">/ {{ metrics.targets.calories | int }} kcal</span>
+        </div>
+    </div>
+    <div class="mt-4">
+        <div class="flex justify-between text-[10px] mb-1 font-medium text-slate-400">
+            <span>Progress</span>
+            <span>{{ metrics.percentages.calories }}%</span>
+        </div>
+        <div class="w-full bg-slate-900 rounded-full h-2.5 p-0.5 border border-slate-800/80 overflow-hidden">
+            <div 
+                class="h-full rounded-full progress-bar-transition {{ metrics.colors.calories }}" 
+                style="width: {{ metrics.percentages.calories }}%"
+            ></div>
+        </div>
+    </div>
+</div>
+
+<!-- Protein -->
+<div class="glass-panel p-5 rounded-2xl relative overflow-hidden flex flex-col justify-between min-h-[140px] border border-slate-800/60 shadow-lg">
+    <div class="absolute -right-8 -top-8 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl glow-glow"></div>
+    <div>
+        <div class="flex justify-between items-start">
+            <span class="text-xs font-semibold tracking-wide uppercase text-emerald-300/80">Protein</span>
+            <span class="text-[10px] text-slate-450 font-medium">{{ metrics.targets.protein | int }}g target</span>
+        </div>
+        <div class="mt-3 flex items-baseline gap-0.5">
+            <span class="text-3xl font-extrabold text-white">{{ metrics.totals.protein }}</span>
+            <span class="text-xs text-slate-400 font-medium">g</span>
+        </div>
+    </div>
+    <div class="mt-4">
+        <div class="flex justify-between text-[10px] mb-1 font-medium text-slate-400">
+            <span>Progress</span>
+            <span>{{ metrics.percentages.protein }}%</span>
+        </div>
+        <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800/40">
+            <div 
+                class="h-full rounded-full progress-bar-transition {{ metrics.colors.protein }}" 
+                style="width: {{ metrics.percentages.protein }}%"
+            ></div>
+        </div>
+    </div>
+</div>
+
+<!-- Carbohydrates -->
+<div class="glass-panel p-5 rounded-2xl relative overflow-hidden flex flex-col justify-between min-h-[140px] border border-slate-800/60 shadow-lg">
+    <div class="absolute -right-8 -top-8 w-24 h-24 bg-amber-500/10 rounded-full blur-xl glow-glow"></div>
+    <div>
+        <div class="flex justify-between items-start">
+            <span class="text-xs font-semibold tracking-wide uppercase text-amber-300/80">Carbs</span>
+            <span class="text-[10px] text-slate-450 font-medium">{{ metrics.targets.carbs | int }}g target</span>
+        </div>
+        <div class="mt-3 flex items-baseline gap-0.5">
+            <span class="text-3xl font-extrabold text-white">{{ metrics.totals.carbs }}</span>
+            <span class="text-xs text-slate-400 font-medium">g</span>
+        </div>
+    </div>
+    <div class="mt-4">
+        <div class="flex justify-between text-[10px] mb-1 font-medium text-slate-450">
+            <span>Progress</span>
+            <span>{{ metrics.percentages.carbs }}%</span>
+        </div>
+        <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800/40">
+            <div 
+                class="h-full rounded-full progress-bar-transition {{ metrics.colors.carbs }}" 
+                style="width: {{ metrics.percentages.carbs }}%"
+            ></div>
+        </div>
+    </div>
+</div>
+
+<!-- Fat -->
+<div class="glass-panel p-5 rounded-2xl relative overflow-hidden flex flex-col justify-between min-h-[140px] border border-slate-800/60 shadow-lg">
+    <div class="absolute -right-8 -top-8 w-24 h-24 bg-rose-500/10 rounded-full blur-xl glow-glow"></div>
+    <div>
+        <div class="flex justify-between items-start">
+            <span class="text-xs font-semibold tracking-wide uppercase text-rose-300/80">Fat</span>
+            <span class="text-[10px] text-slate-450 font-medium">{{ metrics.targets.fat | int }}g target</span>
+        </div>
+        <div class="mt-3 flex items-baseline gap-0.5">
+            <span class="text-3xl font-extrabold text-white">{{ metrics.totals.fat }}</span>
+            <span class="text-xs text-slate-400 font-medium">g</span>
+        </div>
+    </div>
+    <div class="mt-4">
+        <div class="flex justify-between text-[10px] mb-1 font-medium text-slate-450">
+            <span>Progress</span>
+            <span>{{ metrics.percentages.fat }}%</span>
+        </div>
+        <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800/40">
+            <div 
+                class="h-full rounded-full progress-bar-transition {{ metrics.colors.fat }}" 
+                style="width: {{ metrics.percentages.fat }}%"
+            ></div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,400 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 mt-8 flex-1">
+    <!-- Top Header -->
+    <header class="flex justify-between items-center mb-8 border-b border-slate-850 pb-5">
+        <div class="flex items-center gap-3">
+            <div class="p-2.5 bg-indigo-600/15 rounded-xl border border-indigo-500/20 shadow-md">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2z" />
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-2xl font-black tracking-tight text-white sm:text-3xl">Calorie Tracker</h1>
+                <p class="text-xs text-slate-450 font-medium">Self-Hosted Macro Journal</p>
+            </div>
+        </div>
+        
+        <div class="text-right">
+            <span class="text-sm font-semibold text-slate-300 block" id="current-date-display">Today</span>
+            <span class="text-[10px] font-medium text-slate-500 block">Server Timezone</span>
+        </div>
+    </header>
+
+    <!-- Adjust Target Goals Panel -->
+    <details class="group glass-panel rounded-2xl border border-slate-800/60 p-4 mb-6 shadow-md transition-all duration-200">
+        <summary class="list-none flex justify-between items-center cursor-pointer select-none">
+            <span class="text-xs font-bold tracking-wider uppercase text-slate-400 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-indigo-400 group-open:rotate-90 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Adjust Daily Target Goals
+            </span>
+            <span class="text-xs text-indigo-400 group-open:hidden">Edit</span>
+            <span class="text-xs text-indigo-400 hidden group-open:inline">Hide</span>
+        </summary>
+        <form hx-post="/settings/update" hx-target="#history-panel" hx-swap="innerHTML" class="mt-4 pt-4 border-t border-slate-800/60 grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1">Calories (kcal)</label>
+                <input 
+                    type="number" 
+                    name="daily_calorie_target" 
+                    value="{{ metrics.targets.calories | int }}" 
+                    required 
+                    min="1" 
+                    class="w-full px-3 py-2 rounded-lg glass-input text-slate-100 text-sm"
+                >
+            </div>
+            <div>
+                <label class="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1">Protein (g)</label>
+                <input 
+                    type="number" 
+                    name="daily_protein_target" 
+                    value="{{ metrics.targets.protein | int }}" 
+                    required 
+                    min="0" 
+                    class="w-full px-3 py-2 rounded-lg glass-input text-slate-100 text-sm"
+                >
+            </div>
+            <div>
+                <label class="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1">Carbohydrates (g)</label>
+                <input 
+                    type="number" 
+                    name="daily_carbs_target" 
+                    value="{{ metrics.targets.carbs | int }}" 
+                    required 
+                    min="0" 
+                    class="w-full px-3 py-2 rounded-lg glass-input text-slate-100 text-sm"
+                >
+            </div>
+            <div>
+                <label class="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1">Fats (g)</label>
+                <input 
+                    type="number" 
+                    name="daily_fat_target" 
+                    value="{{ metrics.targets.fat | int }}" 
+                    required 
+                    min="0" 
+                    class="w-full px-3 py-2 rounded-lg glass-input text-slate-100 text-sm"
+                >
+            </div>
+            <div class="col-span-2 sm:col-span-4 flex justify-end mt-2">
+                <button 
+                    type="submit" 
+                    class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold tracking-wide shadow transition-colors duration-150"
+                >
+                    Update Targets
+                </button>
+            </div>
+        </form>
+    </details>
+
+    <!-- Metrics Cards Row -->
+    <div id="metrics-panel" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {% include "metrics.html" %}
+    </div>
+
+    <!-- Main Grid: Log Food on left, History on right -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <!-- Forms Panel (Column Span 5) -->
+        <div class="lg:col-span-5 space-y-6">
+            
+            <!-- Log Intake Box -->
+            <div class="glass-panel p-6 rounded-3xl border border-slate-800/60 shadow-xl relative overflow-hidden">
+                <div class="absolute -right-24 -bottom-24 w-48 h-48 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none"></div>
+                <h2 class="text-base font-bold text-slate-100 mb-4 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Log Food Consumption
+                </h2>
+                
+                <form hx-post="/log/add" hx-target="#history-panel" hx-swap="innerHTML" class="space-y-4" onsubmit="clearLogForm()">
+                    <!-- Search Input with Dropdown -->
+                    <div class="relative">
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Search Food Catalog</label>
+                        <div class="relative">
+                            <input 
+                                type="text" 
+                                id="log-food-search" 
+                                name="search_query"
+                                placeholder="Search e.g. Cows Milk, Chicken, Banana..." 
+                                class="w-full px-4 py-3 pl-11 rounded-xl glass-input text-slate-100 text-sm placeholder-slate-500"
+                                hx-post="/search"
+                                hx-trigger="keyup changed delay:150ms"
+                                hx-target="#search-results"
+                                autocomplete="off"
+                                onfocus="showDropdown()"
+                            >
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                            </div>
+                        </div>
+                        
+                        <!-- Search Results Dropdown -->
+                        <ul 
+                            id="search-results" 
+                            class="absolute z-30 left-0 right-0 mt-2 bg-slate-900/95 border border-slate-700/50 rounded-xl shadow-2xl max-h-60 overflow-y-auto divide-y divide-slate-800/60 hidden backdrop-blur-md"
+                        >
+                            <!-- Swapped in by HTMX /search -->
+                        </ul>
+                    </div>
+
+                    <!-- Hidden parameter for selected food -->
+                    <input type="hidden" id="log-food-id" name="food_id" required>
+
+                    <!-- Preview details -->
+                    <div id="food-preview" class="hidden p-3 bg-slate-950/40 rounded-xl border border-slate-850/60 flex items-center justify-between text-xs text-slate-300">
+                        <div class="pr-2">
+                            <span class="font-bold text-indigo-400 block" id="preview-name">None</span>
+                            <span id="preview-macros" class="text-slate-450 block mt-0.5">0 kcal per 100g</span>
+                        </div>
+                        <button type="button" onclick="clearSelectedFood()" class="text-slate-500 hover:text-slate-300 font-bold shrink-0">
+                            Clear
+                        </button>
+                    </div>
+
+                    <div class="flex gap-4">
+                        <div class="flex-1">
+                            <label class="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1.5">Quantity consumed</label>
+                            <div class="relative">
+                                <input 
+                                    type="number" 
+                                    id="log-quantity" 
+                                    name="quantity"
+                                    step="any"
+                                    min="0.01"
+                                    placeholder="e.g. 150" 
+                                    required
+                                    class="w-full px-4 py-3 pr-12 rounded-xl glass-input text-slate-100 text-sm placeholder-slate-500"
+                                >
+                                <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                                    <span id="quantity-unit" class="text-xs font-bold text-slate-500">g</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-end">
+                            <button 
+                                type="submit" 
+                                class="h-11 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm tracking-wide shadow-lg hover:shadow-indigo-500/20 active:translate-y-0.5 transition-all duration-150 flex items-center justify-center border border-indigo-500/30"
+                            >
+                                Log Entry
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Create New Catalog Item Box -->
+            <details class="group glass-panel rounded-3xl border border-slate-800/60 p-6 shadow-xl relative overflow-hidden transition-all duration-200">
+                <summary class="list-none flex justify-between items-center cursor-pointer select-none">
+                    <h2 class="text-base font-bold text-slate-100 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-400 group-open:rotate-45 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Create Catalog Food
+                    </h2>
+                    <span class="text-xs text-indigo-400 group-open:hidden">Expand</span>
+                    <span class="text-xs text-indigo-400 hidden group-open:inline">Hide</span>
+                </summary>
+                
+                <form action="/food/add" method="POST" class="mt-5 pt-5 border-t border-slate-800/60 space-y-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1">Food Item Name</label>
+                        <input 
+                            type="text" 
+                            name="name" 
+                            placeholder="e.g. Greek Yogurt 0% Fat" 
+                            required 
+                            class="w-full px-3.5 py-2.5 rounded-xl glass-input text-slate-100 text-sm placeholder-slate-600"
+                        >
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1">Serving Unit</label>
+                            <select 
+                                id="food-add-unit" 
+                                name="unit" 
+                                onchange="toggleFormUnitHelp()"
+                                class="w-full px-3.5 py-2.5 rounded-xl glass-input text-slate-100 text-sm bg-slate-900"
+                            >
+                                <option value="g">Grams (g)</option>
+                                <option value="piece">Piece / Whole</option>
+                                <option value="serving">Serving</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1">Calories (kcal)</label>
+                            <input 
+                                type="number" 
+                                name="calories" 
+                                step="any" 
+                                placeholder="e.g. 59" 
+                                required 
+                                min="0" 
+                                class="w-full px-3.5 py-2.5 rounded-xl glass-input text-slate-100 text-sm placeholder-slate-600"
+                            >
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1">Protein (g)</label>
+                            <input 
+                                type="number" 
+                                name="protein" 
+                                step="any" 
+                                placeholder="10.3" 
+                                min="0" 
+                                class="w-full px-3 py-2 rounded-xl glass-input text-slate-100 text-sm placeholder-slate-600"
+                            >
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1">Carbs (g)</label>
+                            <input 
+                                type="number" 
+                                name="carbs" 
+                                step="any" 
+                                placeholder="3.6" 
+                                min="0" 
+                                class="w-full px-3 py-2 rounded-xl glass-input text-slate-100 text-sm placeholder-slate-600"
+                            >
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1">Fat (g)</label>
+                            <input 
+                                type="number" 
+                                name="fat" 
+                                step="any" 
+                                placeholder="0.4" 
+                                min="0" 
+                                class="w-full px-3 py-2 rounded-xl glass-input text-slate-100 text-sm placeholder-slate-600"
+                            >
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-indigo-950/20 border border-indigo-900/40 rounded-xl">
+                        <p id="food-add-help-text" class="text-[11px] text-indigo-300/90 leading-relaxed font-medium">
+                            💡 <strong>Grams (g) config:</strong> Enter the nutritional values **per 100g**. We will automatically scale them internally for exact per-1g calculations.
+                        </p>
+                    </div>
+
+                    <button 
+                        type="submit" 
+                        class="w-full py-3 rounded-xl bg-indigo-600/10 hover:bg-indigo-600 text-indigo-400 hover:text-white font-bold text-sm tracking-wide shadow-md transition-all duration-150 border border-indigo-500/30 hover:border-transparent"
+                    >
+                        Register Catalog Item
+                    </button>
+                </form>
+            </details>
+        </div>
+
+        <!-- History & Logs List (Column Span 7) -->
+        <div class="lg:col-span-7">
+            <h2 class="text-lg font-bold text-slate-100 mb-4 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Chronological Intake History
+            </h2>
+            <div id="history-panel">
+                {% include "logs.html" %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts for select and dropdown behavior -->
+<script>
+    // Format header date on client side
+    const displayElement = document.getElementById("current-date-display");
+    const d = new Date();
+    const options = { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' };
+    displayElement.innerText = d.toLocaleDateString('en-US', options);
+
+    function selectFood(id, name, calories, protein, carbs, fat, unit) {
+        document.getElementById("log-food-id").value = id;
+        document.getElementById("log-food-search").value = name;
+        document.getElementById("quantity-unit").innerText = unit;
+        
+        let desc = "";
+        if (unit === 'g') {
+            let cal = Math.round(parseFloat(calories) * 100);
+            let p = Math.round(parseFloat(protein) * 100 * 10) / 10;
+            let c = Math.round(parseFloat(carbs) * 100 * 10) / 10;
+            let f = Math.round(parseFloat(fat) * 100 * 10) / 10;
+            desc = `${cal} kcal | P: ${p}g | C: ${c}g | F: ${f}g per 100g`;
+        } else {
+            let cal = Math.round(parseFloat(calories) * 10) / 10;
+            let p = Math.round(parseFloat(protein) * 10) / 10;
+            let c = Math.round(parseFloat(carbs) * 10) / 10;
+            let f = Math.round(parseFloat(fat) * 10) / 10;
+            desc = `${cal} kcal | P: ${p}g | C: ${c}g | F: ${f}g per ${unit}`;
+        }
+        
+        document.getElementById("preview-name").innerText = name;
+        document.getElementById("preview-macros").innerText = desc;
+        document.getElementById("food-preview").classList.remove("hidden");
+        
+        hideDropdown();
+    }
+
+    function clearSelectedFood() {
+        document.getElementById("log-food-id").value = "";
+        document.getElementById("log-food-search").value = "";
+        document.getElementById("quantity-unit").innerText = "g";
+        document.getElementById("food-preview").classList.add("hidden");
+    }
+
+    function clearLogForm() {
+        setTimeout(() => {
+            clearSelectedFood();
+            document.getElementById("log-quantity").value = "";
+        }, 100);
+    }
+
+    function showDropdown() {
+        const results = document.getElementById("search-results");
+        results.classList.remove("hidden");
+        
+        // Trigger initial autocomplete filter if search is empty
+        const searchInput = document.getElementById("log-food-search");
+        if (searchInput.value.trim() === "") {
+            // Trigger htmx programmatically
+            htmx.trigger(searchInput, "keyup");
+        }
+    }
+
+    function hideDropdown() {
+        setTimeout(() => {
+            const results = document.getElementById("search-results");
+            if (results) results.classList.add("hidden");
+        }, 250);
+    }
+
+    function toggleFormUnitHelp() {
+        const select = document.getElementById("food-add-unit");
+        const helpText = document.getElementById("food-add-help-text");
+        if (select.value === 'g') {
+            helpText.innerHTML = "💡 <strong>Grams (g) config:</strong> Enter the nutritional values **per 100g**. We will automatically scale them internally for exact per-1g calculations.";
+        } else {
+            helpText.innerHTML = `💡 <strong>${select.value.charAt(0).toUpperCase() + select.value.slice(1)} config:</strong> Enter the nutritional values **per single ${select.value}**. Quantity logged will scale directly with these values.`;
+        }
+    }
+
+    // Dismiss search suggestions dropdown if clicking outside
+    document.addEventListener("click", function(event) {
+        const searchInput = document.getElementById("log-food-search");
+        const results = document.getElementById("search-results");
+        if (searchInput && results && !searchInput.contains(event.target) && !results.contains(event.target)) {
+            results.classList.add("hidden");
+        }
+    });
+</script>
+{% endblock %}

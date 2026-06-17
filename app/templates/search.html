@@ -1,0 +1,26 @@
+{% if foods %}
+    {% for food in foods %}
+        <li 
+            class="px-4 py-3 hover:bg-slate-800/80 cursor-pointer border-b border-slate-700/30 last:border-0 flex justify-between items-center transition-colors duration-150"
+            onclick="selectFood('{{ food.id }}', '{{ food.name }}', '{{ food.calories }}', '{{ food.protein }}', '{{ food.carbs }}', '{{ food.fat }}', '{{ food.unit }}')"
+        >
+            <div class="pr-2">
+                <span class="font-medium text-slate-100 block">{{ food.name }}</span>
+                <span class="text-xs text-slate-400 block mt-0.5">
+                    {% if food.unit == 'g' %}
+                        Per 100g: {{ (food.calories * 100) | round(1) }} kcal | P: {{ (food.protein * 100) | round(1) }}g | C: {{ (food.carbs * 100) | round(1) }}g | F: {{ (food.fat * 100) | round(1) }}g
+                    {% else %}
+                        Per Unit: {{ food.calories | round(1) }} kcal | P: {{ food.protein | round(1) }}g | C: {{ food.carbs | round(1) }}g | F: {{ food.fat | round(1) }}g
+                    {% endif %}
+                </span>
+            </div>
+            <span class="text-xs font-semibold px-2.5 py-1 bg-slate-800 text-indigo-400 rounded-full border border-slate-700/50 hover:bg-indigo-950 transition-colors duration-150 shrink-0">
+                Select
+            </span>
+        </li>
+    {% endfor %}
+{% else %}
+    <li class="px-4 py-3 text-slate-400 text-sm text-center">
+        No matches found. Add it in the catalog first!
+    </li>
+{% endif %}
