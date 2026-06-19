@@ -102,24 +102,13 @@ To run the stack with persistent volumes and automatic restart configurations, a
 ### Manifest Details (`docker-compose.yml`)
 
 ```yaml
-version: '3.8'
-
 services:
   calorie-tracker:
     image: ghcr.io/erwingfhein/calorie-tracker:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
     container_name: calorie-tracker
-    ports:
-      - "8000:8000"
-    volumes:
-      - calorie_tracker_data:/data
     restart: unless-stopped
+    ports:
+      - "8080:8000"
     environment:
-      - DATABASE_PATH=/data/tracker.db
-
-volumes:
-  calorie_tracker_data:
-    driver: local
+      - TZ=America/Sao_Paulo
 ```
