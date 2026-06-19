@@ -636,8 +636,8 @@ def add_food(
         conn.close()
         
     if redirect_to == "/config":
-        return RedirectResponse(url="/config?success=food", status_code=status.HTTP_303_SEE_OTHER)
-    return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url="config?success=food", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url="./", status_code=status.HTTP_303_SEE_OTHER)
 
 @app.post("/log/add", response_class=HTMLResponse)
 def add_log(
@@ -730,4 +730,4 @@ def update_settings(
     conn.commit()
     conn.close()
     
-    return RedirectResponse(url="/config?success=targets", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url="config?success=targets", status_code=status.HTTP_303_SEE_OTHER)
