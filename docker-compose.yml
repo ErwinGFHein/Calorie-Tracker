@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  calorie-tracker:
+    image: ghcr.io/erwingfhein/calorie-tracker:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: calorie-tracker
+    ports:
+      - "8000:8000"
+    volumes:
+      - calorie_tracker_data:/data
+    restart: unless-stopped
+    environment:
+      - DATABASE_PATH=/data/tracker.db
+
+volumes:
+  calorie_tracker_data:
+    driver: local

@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- View and Mode Selector Controls -->
+    <div hx-boost="true" class="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between border-b border-slate-850 pb-5">
+        <!-- View selector buttons -->
+        <div class="flex bg-slate-900/50 p-1 rounded-xl border border-slate-800/40 w-fit">
+            <a href="/calendar?view=week&mode={{ mode }}" class="px-4 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition-all duration-150 {% if view == 'week' %}bg-indigo-600 text-white shadow-md{% else %}text-slate-400 hover:text-slate-200 hover:bg-slate-800/40{% endif %}">
+                Weekly Log
+            </a>
+            <a href="/calendar?view=month&mode={{ mode }}" class="px-4 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition-all duration-150 {% if view == 'month' %}bg-indigo-600 text-white shadow-md{% else %}text-slate-400 hover:text-slate-200 hover:bg-slate-800/40{% endif %}">
+                Monthly Heatmap
+            </a>
+            <a href="/calendar?view=year&mode={{ mode }}" class="px-4 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition-all duration-150 {% if view == 'year' %}bg-indigo-600 text-white shadow-md{% else %}text-slate-400 hover:text-slate-200 hover:bg-slate-800/40{% endif %}">
+                Yearly Heatmap
+            </a>
+        </div>
+
+        <!-- Mode selector buttons -->
+        <div class="flex bg-slate-900/50 p-1 rounded-xl border border-slate-800/40 w-fit">
+            <a href="/calendar?view={{ view }}&mode=calorie" class="px-4 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition-all duration-150 {% if mode == 'calorie' %}bg-indigo-600 text-white shadow-md{% else %}text-slate-400 hover:text-slate-200 hover:bg-slate-800/40{% endif %}">
+                Calorie
+            </a>
+            <a href="/calendar?view={{ view }}&mode=macro" class="px-4 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition-all duration-150 {% if mode == 'macro' %}bg-indigo-600 text-white shadow-md{% else %}text-slate-400 hover:text-slate-200 hover:bg-slate-800/40{% endif %}">
+                Macro
+            </a>
+            <a href="/calendar?view={{ view }}&mode=average" class="px-4 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition-all duration-150 {% if mode == 'average' %}bg-indigo-600 text-white shadow-md{% else %}text-slate-400 hover:text-slate-200 hover:bg-slate-800/40{% endif %}">
+                Average
+            </a>
+        </div>
+    </div>
+
+    <!-- Active Filter Text -->
+    <div class="flex justify-between items-center text-xs font-semibold text-slate-400 px-1">
+        <span>Active View: <strong class="text-indigo-400 uppercase tracking-wider">{{ view }}</strong></span>
+        <span>Evaluation Mode: <strong class="text-indigo-400 uppercase tracking-wider">{{ mode }} scoring</strong></span>
+    </div>
+
+    <!-- Calendar View Area -->
+    <div hx-boost="true" class="glass-panel p-6 rounded-3xl border border-slate-800/60 shadow-xl">
+        {% if view == 'week' %}
+            <!-- WEEK VIEW -->
+            <div class="space-y-6">
+                <h3 class="text-base font-bold text-slate-100 flex items-center gap-2 mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    Weekly Activity Detail
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-7 gap-4">
+                    {% for day in days %}
+                        <a href="/?date={{ day.date }}" class="glass-panel rounded-2xl border border-slate-800/40 overflow-hidden flex flex-col justify-between min-h-[200px] hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/5 transition-all duration-205 hover:scale-[1.02] cursor-pointer block">
+                            <!-- Day Header -->
+                            <div class="px-4 py-2.5 bg-slate-900/60 border-b border-slate-800/40 flex justify-between items-center">
+                                <span class="font-bold text-sm text-slate-200">{{ day.short_day_name }}</span>
+                                <span class="text-[10px] font-semibold text-slate-450">{{ day.formatted_date }}</span>
+                            </div>
+                            
+                            <!-- Day Body -->
+                            <div class="p-4 flex-1 flex flex-col justify-between gap-4">
+                                <div class="text-center">
+                                    {% if day.has_data %}
+                                        <div class="inline-flex items-center justify-center w-12 h-12 rounded-full font-extrabold text-sm {{ day.color_class }} shadow-lg">
+                                            {{ day.score | int }}%
+                                        </div>
+                                    {% else %}
+                                        <div class="inline-flex items-center justify-center w-12 h-12 rounded-full font-bold text-xs bg-slate-900 border border-slate-800 text-slate-650">
+                                            Empty
+                                        </div>
+                                    {% endif %}
+                                    <span class="block text-[10px] font-medium text-slate-500 uppercase mt-2">Score</span>
+                                </div>
+
+                                <div class="space-y-1 text-[11px] font-semibold">
+                                    <div class="flex justify-between">
+                                        <span class="text-slate-450">Calories</span>
+                                        <span class="text-slate-250">{{ day.total_calories | int }}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-slate-450">Protein</span>
+                                        <span class="text-emerald-400">{{ day.total_protein | int }}g</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-slate-450">Carbs</span>
+                                        <span class="text-amber-400">{{ day.total_carbs | int }}g</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-slate-450">Fat</span>
+                                        <span class="text-rose-400">{{ day.total_fat | int }}g</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    {% endfor %}
+                </div>
+            </div>
+
+        {% elif view == 'month' %}
+            <!-- MONTH VIEW -->
+            <div class="space-y-6">
+                <!-- Header with Month Name -->
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-base font-bold text-slate-100 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Monthly Performance View
+                    </h3>
+                    <span class="text-sm font-bold text-indigo-400 uppercase tracking-wide">
+                        {{ month_name }} {{ year_num }}
+                    </span>
+                </div>
+
+                <!-- Weekday Headers -->
+                <div class="grid grid-cols-7 gap-3 text-center text-[10px] font-bold text-slate-450 uppercase tracking-widest border-b border-slate-800/40 pb-2">
+                    <div>Mon</div>
+                    <div>Tue</div>
+                    <div>Wed</div>
+                    <div>Thu</div>
+                    <div>Fri</div>
+                    <div>Sat</div>
+                    <div>Sun</div>
+                </div>
+
+                <!-- Calendar Grid -->
+                <div class="grid grid-cols-7 gap-3 mt-4">
+                    <!-- Spacers for start of month -->
+                    {% for spacer in spacers %}
+                        <div class="aspect-square bg-slate-950/20 border border-slate-900/40 rounded-xl"></div>
+                    {% endfor %}
+
+                    <!-- Day Cells -->
+                    {% for day in days %}
+                        <div class="relative group aspect-square">
+                            <a href="/?date={{ day.date }}" class="absolute inset-0 rounded-xl flex flex-col justify-between p-2 cursor-pointer transition-all duration-150 border {{ day.color_class }} hover:scale-105">
+                                <span class="font-black text-xs text-white">{{ day.date_obj.day }}</span>
+                                {% if day.has_data %}
+                                    <span class="text-[9px] font-bold self-end tracking-tighter text-white/90">{{ day.score | int }}%</span>
+                                {% endif %}
+                            </a>
+
+                            <!-- Premium Tooltip on Hover -->
+                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-900 border border-slate-700/60 rounded-xl p-3 text-xs text-slate-200 hidden group-hover:block z-40 shadow-2xl backdrop-blur-sm pointer-events-none">
+                                <div class="font-bold border-b border-slate-850 pb-1 mb-1.5 text-indigo-400">{{ day.formatted_date }}</div>
+                                <div class="space-y-1 font-medium text-[11px]">
+                                    <div class="flex justify-between">
+                                        <span>Closeness Score:</span>
+                                        <span class="font-bold text-white">{{ day.score }}%</span>
+                                    </div>
+                                    <div class="flex justify-between text-slate-400">
+                                        <span>Total Calories:</span>
+                                        <span>{{ day.total_calories | int }} kcal</span>
+                                    </div>
+                                    <div class="flex justify-between text-slate-400">
+                                        <span>Protein:</span>
+                                        <span>{{ day.total_protein | int }}g</span>
+                                    </div>
+                                    <div class="flex justify-between text-slate-400">
+                                        <span>Carbohydrates:</span>
+                                        <span>{{ day.total_carbs | int }}g</span>
+                                    </div>
+                                    <div class="flex justify-between text-slate-400">
+                                        <span>Fats:</span>
+                                        <span>{{ day.total_fat | int }}g</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+        {% elif view == 'year' %}
+            <!-- YEAR VIEW (GitHub Heatmap Style) -->
+            <div class="space-y-6">
+                <h3 class="text-base font-bold text-slate-100 flex items-center gap-2 mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                    </svg>
+                    Yearly Consistency Heatmap (Last 365 Days)
+                </h3>
+
+                <!-- The GitHub-style Grid Container -->
+                <div class="bg-slate-950/40 border border-slate-850/60 p-5 rounded-2xl">
+                    <!-- Weekday labels + grid row wrapper -->
+                    <div class="flex gap-2.5 overflow-x-auto min-w-[700px] scrollbar-thin">
+                        <!-- Row Weekday Indicators -->
+                        <div class="flex flex-col justify-between text-[9px] font-bold text-slate-500 py-1 select-none pr-1 uppercase tracking-wider h-[125px]">
+                            <span>Mon</span>
+                            <span>Wed</span>
+                            <span>Fri</span>
+                            <span>Sun</span>
+                        </div>
+
+                        <!-- 7-row columns grid -->
+                        <div class="grid grid-rows-7 grid-flow-col gap-1.5 pb-2">
+                            {% for day in days %}
+                                <div class="relative group">
+                                    <!-- Cell -->
+                                    <a href="/?date={{ day.date }}" class="block w-3.5 h-3.5 rounded-sm cursor-pointer transition-colors duration-150 {{ day.color_class }} hover:border hover:border-indigo-400"></a>
+                                    
+                                    <!-- Tooltip -->
+                                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-900 border border-slate-700/60 rounded-xl p-3 text-xs text-slate-200 hidden group-hover:block z-40 shadow-2xl backdrop-blur-sm pointer-events-none">
+                                        <div class="font-bold border-b border-slate-850 pb-1 mb-1.5 text-indigo-400">{{ day.formatted_date }}, {{ day.date_obj.year }}</div>
+                                        <div class="space-y-0.5 font-medium text-[10px]">
+                                            <div class="flex justify-between">
+                                                <span>Mode Score:</span>
+                                                <span class="font-bold text-white">{{ day.score }}%</span>
+                                            </div>
+                                            {% if day.has_data %}
+                                                <div class="flex justify-between text-slate-400">
+                                                    <span>Calories:</span>
+                                                    <span>{{ day.total_calories | int }} kcal</span>
+                                                </div>
+                                                <div class="flex justify-between text-slate-400">
+                                                    <span>Macros (P/C/F):</span>
+                                                    <span>{{ day.total_protein | int }}g/{{ day.total_carbs | int }}g/{{ day.total_fat | int }}g</span>
+                                                </div>
+                                            {% else %}
+                                                <div class="text-slate-500 italic mt-0.5 text-center">No foods logged on this day</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Heatmap Legend -->
+                    <div class="flex justify-end items-center gap-2 text-[10px] text-slate-550 mt-4 border-t border-slate-850/60 pt-3 font-semibold select-none">
+                        <span>Empty/No Logs</span>
+                        <div class="w-3.5 h-3.5 rounded-sm bg-slate-900/40 border border-slate-800/40"></div>
+                        <div class="w-3.5 h-3.5 rounded-sm bg-rose-500/60"></div>
+                        <div class="w-3.5 h-3.5 rounded-sm bg-amber-500/60"></div>
+                        <div class="w-3.5 h-3.5 rounded-sm bg-teal-500/60"></div>
+                        <div class="w-3.5 h-3.5 rounded-sm bg-emerald-500/80"></div>
+                        <span>100% Score</span>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

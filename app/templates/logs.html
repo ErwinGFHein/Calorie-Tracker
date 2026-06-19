@@ -58,7 +58,7 @@
                                 </span>
                                 <!-- Delete Button -->
                                 <button 
-                                    hx-delete="/log/{{ item.log_id }}"
+                                    hx-delete="/log/{{ item.log_id }}?date={{ selected_date }}"
                                     hx-target="#history-panel"
                                     hx-swap="innerHTML"
                                     class="text-slate-500 hover:text-rose-450 hover:bg-rose-500/10 p-2 rounded-lg transition-all duration-150 border border-transparent hover:border-rose-500/20"

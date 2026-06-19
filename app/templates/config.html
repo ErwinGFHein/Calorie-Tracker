@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Notifications -->
+    {% if success == 'targets' %}
+        <div class="glass-panel p-4 rounded-xl border border-emerald-500/30 bg-emerald-950/20 text-emerald-300 text-sm font-medium flex items-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>Daily target goals updated successfully!</span>
+        </div>
+    {% elif success == 'food' %}
+        <div class="glass-panel p-4 rounded-xl border border-emerald-500/30 bg-emerald-950/20 text-emerald-300 text-sm font-medium flex items-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>Catalog food item registered successfully!</span>
+        </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Target Settings Panel -->
+        <div class="glass-panel p-6 rounded-3xl border border-slate-800/60 shadow-xl relative overflow-hidden">
+            <div class="absolute -right-24 -bottom-24 w-48 h-48 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none"></div>
+            <h2 class="text-base font-bold text-slate-100 mb-5 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Adjust Daily Target Goals
+            </h2>
+
+            <form action="/settings/update" method="POST" class="space-y-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Calories Target (kcal)</label>
+                    <input 
+                        type="number" 
+                        name="daily_calorie_target" 
+                        value="{{ targets.daily_calorie_target | int }}" 
+                        required 
+                        min="1" 
+                        class="w-full px-4 py-3 rounded-xl glass-input text-slate-100 text-sm"
+                    >
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Protein Target (g)</label>
+                    <input 
+                        type="number" 
+                        name="daily_protein_target" 
+                        value="{{ targets.daily_protein_target | int }}" 
+                        required 
+                        min="0" 
+                        class="w-full px-4 py-3 rounded-xl glass-input text-slate-100 text-sm"
+                    >
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Carbohydrates Target (g)</label>
+                    <input 
+                        type="number" 
+                        name="daily_carbs_target" 
+                        value="{{ targets.daily_carbs_target | int }}" 
+                        required 
+                        min="0" 
+                        class="w-full px-4 py-3 rounded-xl glass-input text-slate-100 text-sm"
+                    >
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1.5">Fats Target (g)</label>
+                    <input 
+                        type="number" 
+                        name="daily_fat_target" 
+                        value="{{ targets.daily_fat_target | int }}" 
+                        required 
+                        min="0" 
+                        class="w-full px-4 py-3 rounded-xl glass-input text-slate-100 text-sm"
+                    >
+                </div>
+
+                <button 
+                    type="submit" 
+                    class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm tracking-wide shadow-lg hover:shadow-indigo-500/20 transition-all duration-150 border border-indigo-500/30"
+                >
+                    Save Target Settings
+                </button>
+            </form>
+        </div>
+
+        <!-- Catalog Management Panel -->
+        <div class="glass-panel p-6 rounded-3xl border border-slate-800/60 shadow-xl relative overflow-hidden">
+            <div class="absolute -right-24 -bottom-24 w-48 h-48 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none"></div>
+            <h2 class="text-base font-bold text-slate-100 mb-5 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                Register Catalog Food
+            </h2>
+
+            <form action="/food/add" method="POST" class="space-y-4">
+                <!-- Redirect hidden helper -->
+                <input type="hidden" name="redirect_to" value="/config">
+
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Food Item Name</label>
+                    <input 
+                        type="text" 
+                        name="name" 
+                        placeholder="e.g. Greek Yogurt 0% Fat" 
+                        required 
+                        class="w-full px-4 py-3 rounded-xl glass-input text-slate-100 text-sm placeholder-slate-600"
+                    >
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Serving Unit</label>
+                        <select 
+                            id="food-add-unit-config" 
+                            name="unit" 
+                            onchange="toggleConfigFormUnitHelp()"
+                            class="w-full px-4 py-3 rounded-xl glass-input text-slate-100 text-sm bg-slate-900"
+                        >
+                            <option value="g">Grams (g)</option>
+                            <option value="piece">Piece / Whole</option>
+                            <option value="serving">Serving</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Calories (kcal)</label>
+                        <input 
+                            type="number" 
+                            name="calories" 
+                            step="any" 
+                            placeholder="e.g. 59" 
+                            required 
+                            min="0" 
+                            class="w-full px-4 py-3 rounded-xl glass-input text-slate-100 text-sm placeholder-slate-600"
+                        >
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1">Protein (g)</label>
+                        <input 
+                            type="number" 
+                            name="protein" 
+                            step="any" 
+                            placeholder="10.3" 
+                            min="0" 
+                            class="w-full px-3 py-2 rounded-xl glass-input text-slate-100 text-sm placeholder-slate-600"
+                        >
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1">Carbs (g)</label>
+                        <input 
+                            type="number" 
+                            name="carbs" 
+                            step="any" 
+                            placeholder="3.6" 
+                            min="0" 
+                            class="w-full px-3 py-2 rounded-xl glass-input text-slate-100 text-sm placeholder-slate-600"
+                        >
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1">Fat (g)</label>
+                        <input 
+                            type="number" 
+                            name="fat" 
+                            step="any" 
+                            placeholder="0.4" 
+                            min="0" 
+                            class="w-full px-3 py-2 rounded-xl glass-input text-slate-100 text-sm placeholder-slate-600"
+                        >
+                    </div>
+                </div>
+
+                <div class="p-3 bg-indigo-950/20 border border-indigo-900/40 rounded-xl">
+                    <p id="food-add-help-text-config" class="text-[11px] text-indigo-300/90 leading-relaxed font-medium">
+                        💡 <strong>Grams (g) config:</strong> Enter the nutritional values **per 100g**. We will automatically scale them internally for exact per-1g calculations.
+                    </p>
+                </div>
+
+                <button 
+                    type="submit" 
+                    class="w-full py-3 rounded-xl bg-indigo-650 hover:bg-indigo-600 text-white font-bold text-sm tracking-wide shadow-md transition-all duration-150 border border-indigo-500/30"
+                >
+                    Register Catalog Item
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleConfigFormUnitHelp() {
+        const select = document.getElementById("food-add-unit-config");
+        const helpText = document.getElementById("food-add-help-text-config");
+        if (select.value === 'g') {
+            helpText.innerHTML = "💡 <strong>Grams (g) config:</strong> Enter the nutritional values **per 100g**. We will automatically scale them internally for exact per-1g calculations.";
+        } else {
+            helpText.innerHTML = `💡 <strong>${select.value.charAt(0).toUpperCase() + select.value.slice(1)} config:</strong> Enter the nutritional values **per single ${select.value}**. Quantity logged will scale directly with these values.`;
+        }
+    }
+</script>
+{% endblock %}
