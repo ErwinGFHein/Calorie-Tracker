@@ -609,6 +609,7 @@ async def search_foods(request: Request, search_query: str = Form(""), search_on
 
 @app.post("/food/add")
 def add_food(
+    request: Request,
     name: str = Form(...),
     calories: float = Form(...),
     protein: float = Form(0.0),
@@ -639,8 +640,8 @@ def add_food(
         conn.close()
         
     if redirect_to == "/config":
-        return RedirectResponse(url="config?success=food", status_code=status.HTTP_303_SEE_OTHER)
-    return RedirectResponse(url="./", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=str(request.url_for('config_view')) + "?success=food", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url=request.url_for('index_view'), status_code=status.HTTP_303_SEE_OTHER)
 
 @app.post("/log/add", response_class=HTMLResponse)
 def add_log(
@@ -718,6 +719,7 @@ def delete_log(request: Request, log_id: int, date: str = None):
 
 @app.post("/settings/update")
 def update_settings(
+    request: Request,
     daily_calorie_target: float = Form(...),
     daily_protein_target: float = Form(...),
     daily_carbs_target: float = Form(...),
@@ -733,7 +735,7 @@ def update_settings(
     conn.commit()
     conn.close()
     
-    return RedirectResponse(url="config?success=targets", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url=str(request.url_for('config_view')) + "?success=targets", status_code=status.HTTP_303_SEE_OTHER)
 
 async def estimate_macros_with_gemini(query: str, api_key: str) -> dict:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
