@@ -91,6 +91,7 @@
                                 hx-post="search"
                                 hx-trigger="keyup changed delay:150ms"
                                 hx-target="#search-results"
+                                hx-include="#search-online-checkbox"
                                 autocomplete="off"
                                 onfocus="showDropdown()"
                             >
@@ -99,6 +100,23 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                 </svg>
                             </div>
+                        </div>
+
+                        <!-- Search Online Toggle -->
+                        <div class="flex items-center gap-2 mt-2 px-1">
+                            <input 
+                                type="checkbox" 
+                                id="search-online-checkbox" 
+                                name="search_online" 
+                                class="rounded border-slate-800 bg-slate-950 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-slate-900 h-4 w-4"
+                                hx-post="search"
+                                hx-trigger="change"
+                                hx-target="#search-results"
+                                hx-include="#log-food-search"
+                            >
+                            <label for="search-online-checkbox" class="text-xs text-slate-450 select-none cursor-pointer hover:text-slate-300 transition-colors">
+                                Search online databases (USDA / Open Food Facts)
+                            </label>
                         </div>
                         
                         <!-- Search Results Dropdown -->
@@ -156,6 +174,38 @@
                 </form>
             </div>
 
+            <!-- AI Macro Estimator Box -->
+            <div class="glass-panel p-6 rounded-3xl border border-slate-800/60 shadow-xl relative z-10">
+                <h2 class="text-base font-bold text-slate-100 mb-4 flex items-center gap-2">
+                    <span class="text-indigo-400">✨</span>
+                    AI Macro Estimator (Gemini)
+                </h2>
+                
+                <form hx-post="food/ai-estimate" hx-target="#ai-estimate-results" class="space-y-4" onsubmit="document.getElementById('ai-estimate-results').innerHTML = '<div class=\'text-center text-xs text-slate-450 mt-4\'>Estimating macros...</div>'">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1.5">Describe Food or Dish</label>
+                        <input 
+                            type="text" 
+                            name="ai_query" 
+                            placeholder="e.g. 150g Greek Yogurt 0% Fat, 1 slice sourdough" 
+                            required 
+                            class="w-full px-4 py-3 rounded-xl glass-input text-slate-100 text-sm placeholder-slate-500"
+                        >
+                    </div>
+                    
+                    <button 
+                        type="submit" 
+                        class="w-full h-11 rounded-xl bg-indigo-600/10 hover:bg-indigo-650 text-indigo-400 hover:text-white font-bold text-sm tracking-wide shadow-lg transition-all duration-150 flex items-center justify-center border border-indigo-500/30 hover:border-transparent"
+                    >
+                        Estimate Macros
+                    </button>
+                </form>
+                
+                <div id="ai-estimate-results">
+                    <!-- Swapped in by HTMX /food/ai-estimate -->
+                </div>
+            </div>
+
             <!-- Create New Catalog Item Box -->
             <details class="group glass-panel rounded-3xl border border-slate-800/60 p-6 shadow-xl relative z-10 overflow-hidden transition-all duration-200">
                 <summary class="list-none flex justify-between items-center cursor-pointer select-none">
@@ -174,6 +224,7 @@
                         <label class="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1">Food Item Name</label>
                         <input 
                             type="text" 
+                            id="food-add-name"
                             name="name" 
                             placeholder="e.g. Greek Yogurt 0% Fat" 
                             required 
@@ -199,6 +250,7 @@
                             <label class="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1">Calories (kcal)</label>
                             <input 
                                 type="number" 
+                                id="food-add-calories"
                                 name="calories" 
                                 step="any" 
                                 placeholder="e.g. 59" 
@@ -214,6 +266,7 @@
                             <label class="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1">Protein (g)</label>
                             <input 
                                 type="number" 
+                                id="food-add-protein"
                                 name="protein" 
                                 step="any" 
                                 placeholder="10.3" 
@@ -225,6 +278,7 @@
                             <label class="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1">Carbs (g)</label>
                             <input 
                                 type="number" 
+                                id="food-add-carbs"
                                 name="carbs" 
                                 step="any" 
                                 placeholder="3.6" 
@@ -236,6 +290,7 @@
                             <label class="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1">Fat (g)</label>
                             <input 
                                 type="number" 
+                                id="food-add-fat"
                                 name="fat" 
                                 step="any" 
                                 placeholder="0.4" 
@@ -267,16 +322,49 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Chronological Intake History
+                Daily Intake Logs
             </h2>
-            <div id="history-panel">
-                {% include "logs.html" %}
+            <div id="history-panel" class="space-y-4">
+                {% include "history.html" %}
             </div>
         </div>
     </div>
 
 <!-- Scripts for select and dropdown behavior -->
 <script>
+    function fillCatalogForm(name, unit, calories, protein, carbs, fat, servingSize) {
+        const details = document.querySelector('details.group');
+        if (details) {
+            details.open = true;
+        }
+        
+        // If unit is 'g' (grams), scale macros to per 100g if they are not already.
+        let displayCalories = calories;
+        let displayProtein = protein;
+        let displayCarbs = carbs;
+        let displayFat = fat;
+        
+        if (unit === 'g' && parseFloat(servingSize) > 0 && parseFloat(servingSize) !== 100) {
+            const scale = 100 / parseFloat(servingSize);
+            displayCalories = (parseFloat(calories) * scale).toFixed(1);
+            displayProtein = (parseFloat(protein) * scale).toFixed(1);
+            displayCarbs = (parseFloat(carbs) * scale).toFixed(1);
+            displayFat = (parseFloat(fat) * scale).toFixed(1);
+        }
+        
+        document.getElementById('food-add-name').value = name;
+        document.getElementById('food-add-unit').value = unit;
+        document.getElementById('food-add-calories').value = displayCalories;
+        document.getElementById('food-add-protein').value = displayProtein;
+        document.getElementById('food-add-carbs').value = displayCarbs;
+        document.getElementById('food-add-fat').value = displayFat;
+        
+        if (typeof toggleFormUnitHelp === 'function') {
+            toggleFormUnitHelp();
+        }
+        
+        details.scrollIntoView({ behavior: 'smooth' });
+    }
 
     function selectFood(id, name, calories, protein, carbs, fat, unit) {
         document.getElementById("log-food-id").value = id;

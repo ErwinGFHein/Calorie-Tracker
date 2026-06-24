@@ -551,7 +551,7 @@ async def search_usda(query: str) -> list:
     return []
 
 @app.post("/search", response_class=HTMLResponse)
-async def search_foods(request: Request, search_query: str = Form("")):
+async def search_foods(request: Request, search_query: str = Form(""), search_online: str = Form(None)):
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -592,11 +592,14 @@ async def search_foods(request: Request, search_query: str = Form("")):
             })
         conn.close()
         
-        # Query external APIs concurrently
-        off_task = search_openfoodfacts(search_query.strip())
-        usda_task = search_usda(search_query.strip())
-        off_res, usda_res = await asyncio.gather(off_task, usda_task)
-        external_foods = off_res + usda_res
+        # Query external APIs concurrently only if requested
+        if search_online in ("on", "true", "True"):
+            off_task = search_openfoodfacts(search_query.strip())
+            usda_task = search_usda(search_query.strip())
+            off_res, usda_res = await asyncio.gather(off_task, usda_task)
+            external_foods = off_res + usda_res
+        else:
+            external_foods = []
         
     all_foods = local_foods + external_foods
     
@@ -731,3 +734,138 @@ def update_settings(
     conn.close()
     
     return RedirectResponse(url="config?success=targets", status_code=status.HTTP_303_SEE_OTHER)
+
+async def estimate_macros_with_gemini(query: str, api_key: str) -> dict:
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    payload = {
+        "contents": [{
+            "parts": [{
+                "text": f"Provide the estimated nutritional information for the following query: {query}. If the query specifies a quantity or unit, use that, otherwise default to a standard 100g serving size. Return clean, accurate nutritional estimates."
+            }]
+        }],
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "responseSchema": {
+                "type": "OBJECT",
+                "properties": {
+                    "name": {"type": "STRING", "description": "The standardized name of the food item"},
+                    "calories": {"type": "NUMBER", "description": "Total calories in kcal"},
+                    "protein": {"type": "NUMBER", "description": "Protein in grams"},
+                    "carbs": {"type": "NUMBER", "description": "Carbohydrates in grams"},
+                    "fat": {"type": "NUMBER", "description": "Fat in grams"},
+                    "unit": {"type": "STRING", "description": "The serving unit, e.g. 'g', 'piece', 'serving'"},
+                    "serving_size": {"type": "NUMBER", "description": "The quantity/size corresponding to these macros (e.g. 100)"},
+                    "explanation": {"type": "STRING", "description": "Brief explanation/notes of how the macros were estimated"}
+                },
+                "required": ["name", "calories", "protein", "carbs", "fat", "unit", "serving_size", "explanation"]
+            }
+        }
+    }
+    
+    headers = {"Content-Type": "application/json"}
+    
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(url, json=payload, headers=headers)
+        if resp.status_code != 200:
+            logger.error(f"Gemini API returned status {resp.status_code}: {resp.text}")
+            raise Exception(f"Gemini API error: {resp.text}")
+        
+        data = resp.json()
+        text_content = data["candidates"][0]["content"]["parts"][0]["text"]
+        import json
+        return json.loads(text_content)
+
+@app.post("/food/ai-estimate", response_class=HTMLResponse)
+async def ai_estimate_view(request: Request, ai_query: str = Form("")):
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key and os.path.exists(".env"):
+        with open(".env") as f:
+            for line in f:
+                stripped = line.strip()
+                if stripped and not stripped.startswith("#") and "=" in stripped:
+                    k, v = stripped.split("=", 1)
+                    if k.strip() == "GEMINI_API_KEY":
+                        api_key = v.strip()
+                        os.environ["GEMINI_API_KEY"] = api_key
+                        
+    if not api_key:
+        return """
+        <div class="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-xl text-xs mt-4">
+            <strong>Error:</strong> GEMINI_API_KEY not found in environment variables or .env file.
+        </div>
+        """
+        
+    if not ai_query.strip():
+        return """
+        <div class="p-4 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-xl text-xs mt-4">
+            Please enter a food description.
+        </div>
+        """
+        
+    try:
+        result = await estimate_macros_with_gemini(ai_query.strip(), api_key)
+        name = result.get("name", "Unknown Food")
+        calories = result.get("calories", 0.0)
+        protein = result.get("protein", 0.0)
+        carbs = result.get("carbs", 0.0)
+        fat = result.get("fat", 0.0)
+        unit = result.get("unit", "g")
+        serving_size = result.get("serving_size", 100.0)
+        explanation = result.get("explanation", "")
+        
+        return f"""
+        <div class="mt-4 p-4 bg-slate-950/60 border border-slate-800/80 rounded-2xl space-y-3 relative overflow-hidden">
+            <div class="absolute -right-12 -bottom-12 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none"></div>
+            <div class="flex justify-between items-start">
+                <div>
+                    <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+                        <span class="text-indigo-400">✨</span> AI Estimation: {name}
+                    </h3>
+                    <p class="text-[10px] text-slate-450 mt-0.5">Based on {serving_size}{unit} serving</p>
+                </div>
+                <span class="text-[9px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 font-bold uppercase tracking-wider">Gemini API</span>
+            </div>
+            
+            <div class="grid grid-cols-4 gap-2 text-center text-xs">
+                <div class="p-2 bg-slate-900/50 rounded-xl border border-slate-800/40">
+                    <span class="text-slate-450 block text-[9px] uppercase tracking-wider font-bold">Calories</span>
+                    <span class="font-bold text-white text-sm">{calories}</span> <span class="text-[9px] text-slate-500">kcal</span>
+                </div>
+                <div class="p-2 bg-slate-900/50 rounded-xl border border-slate-800/40">
+                    <span class="text-slate-450 block text-[9px] uppercase tracking-wider font-bold">Protein</span>
+                    <span class="font-bold text-emerald-400 text-sm">{protein}</span> <span class="text-[9px] text-slate-500">g</span>
+                </div>
+                <div class="p-2 bg-slate-900/50 rounded-xl border border-slate-800/40">
+                    <span class="text-slate-450 block text-[9px] uppercase tracking-wider font-bold">Carbs</span>
+                    <span class="font-bold text-amber-400 text-sm">{carbs}</span> <span class="text-[9px] text-slate-500">g</span>
+                </div>
+                <div class="p-2 bg-slate-900/50 rounded-xl border border-slate-800/40">
+                    <span class="text-slate-450 block text-[9px] uppercase tracking-wider font-bold">Fat</span>
+                    <span class="font-bold text-rose-400 text-sm">{fat}</span> <span class="text-[9px] text-slate-500">g</span>
+                </div>
+            </div>
+            
+            <p class="text-[11px] text-slate-400 italic font-medium leading-relaxed bg-slate-900/30 p-2.5 rounded-xl border border-slate-900/40">
+                "{explanation}"
+            </p>
+            
+            <button 
+                type="button"
+                onclick="fillCatalogForm('{name.replace("'", "\\'")}', '{unit}', {calories}, {protein}, {carbs}, {fat}, {serving_size})"
+                class="w-full mt-1 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs tracking-wider transition-colors flex items-center justify-center gap-1.5"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Pre-fill Catalog Form
+            </button>
+        </div>
+        """
+    except Exception as e:
+        logger.error(f"Error in AI estimation: {e}")
+        return f"""
+        <div class="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-xl text-xs mt-4">
+            <strong>Error:</strong> Failed to estimate macros.<br/>
+            <span class="text-[10px] text-slate-500 font-mono mt-1 block">{str(e)}</span>
+        </div>
+        """
