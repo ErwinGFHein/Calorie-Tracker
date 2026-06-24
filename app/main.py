@@ -736,7 +736,7 @@ def update_settings(
     return RedirectResponse(url="config?success=targets", status_code=status.HTTP_303_SEE_OTHER)
 
 async def estimate_macros_with_gemini(query: str, api_key: str) -> dict:
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
     payload = {
         "contents": [{
             "parts": [{
