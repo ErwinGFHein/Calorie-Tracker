@@ -813,6 +813,8 @@ async def ai_estimate_view(request: Request, ai_query: str = Form("")):
         serving_size = result.get("serving_size", 100.0)
         explanation = result.get("explanation", "")
         
+        escaped_name = name.replace("'", "\\'")
+        
         return f"""
         <div class="mt-4 p-4 bg-slate-950/60 border border-slate-800/80 rounded-2xl space-y-3 relative overflow-hidden">
             <div class="absolute -right-12 -bottom-12 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none"></div>
@@ -851,7 +853,7 @@ async def ai_estimate_view(request: Request, ai_query: str = Form("")):
             
             <button 
                 type="button"
-                onclick="fillCatalogForm('{name.replace("'", "\\'")}', '{unit}', {calories}, {protein}, {carbs}, {fat}, {serving_size})"
+                onclick="fillCatalogForm('{escaped_name}', '{unit}', {calories}, {protein}, {carbs}, {fat}, {serving_size})"
                 class="w-full mt-1 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs tracking-wider transition-colors flex items-center justify-center gap-1.5"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
