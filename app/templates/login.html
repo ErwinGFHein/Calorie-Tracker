@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-md mx-auto my-12 bg-slate-900/60 border border-slate-800/80 rounded-3xl p-8 backdrop-blur-md shadow-2xl relative overflow-hidden">
+    <div class="absolute -right-24 -top-24 w-48 h-48 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -left-24 -bottom-24 w-48 h-48 bg-teal-500/5 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="text-center mb-8">
+        <h2 class="text-2xl font-black text-white tracking-tight">Welcome to Calorie Tracker</h2>
+        <p class="text-xs text-slate-450 mt-1 font-medium">Select your profile or create a new one to start journaling</p>
+    </div>
+
+    {% if error %}
+    <div class="p-3 mb-6 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-2xl text-xs font-semibold text-center flex items-center justify-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-rose-450" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <!-- Profile Selector -->
+    <div class="space-y-3 mb-8">
+        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Registered Profiles</h3>
+        
+        {% if not users %}
+        <p class="text-xs text-slate-500 italic text-center py-4">No registered profiles yet.</p>
+        {% else %}
+        <div class="grid gap-2.5">
+            {% for user in users %}
+            <div class="profile-card border {% if select_user == user.id %}border-indigo-500 bg-indigo-600/10{% else %}border-slate-800/60 bg-slate-950/40 hover:border-slate-700/80 hover:bg-slate-900/50{% endif %} rounded-2xl transition-all duration-200">
+                
+                <!-- Main Card Header/Click Target -->
+                <div onclick="togglePinInput(this)" data-user-id="{{ user.id }}" data-has-pin="{% if user.has_pin %}true{% else %}false{% endif %}" class="p-4 flex items-center justify-between cursor-pointer">
+                    <div class="flex items-center gap-3">
+                        <div class="h-8 w-8 rounded-xl bg-slate-800/80 border border-slate-700/50 flex items-center justify-center text-sm font-black text-indigo-400">
+                            {{ user.name[0] | upper }}
+                        </div>
+                        <div>
+                            <span class="text-sm font-bold text-white block">{{ user.name }}</span>
+                            <span class="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
+                                {% if user.has_pin %}
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-amber-500/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg> PIN Protected
+                                {% else %}
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-slate-650" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                                </svg> Open Profile
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        {% if select_user == user.id %}
+                        <span class="text-indigo-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd" />
+                            </svg>
+                        </span>
+                        {% else %}
+                        <span class="text-slate-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                            </svg>
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- PIN Input Section (only shown when selected/clicked and has PIN) -->
+                <div id="pin-section-{{ user.id }}" class="px-4 pb-4 {% if select_user == user.id %}block{% else %}hidden{% endif %}">
+                    <form action="/login" method="post" class="space-y-3 pt-2 border-t border-slate-900/50">
+                        <input type="hidden" name="user_id" value="{{ user.id }}">
+                        
+                        {% if user.has_pin %}
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Enter profile PIN</label>
+                            <input 
+                                type="password" 
+                                name="pin" 
+                                placeholder="••••" 
+                                pattern="[0-9]*" 
+                                inputmode="numeric" 
+                                maxlength="8"
+                                autofocus
+                                class="w-full text-center tracking-[0.75em] text-white placeholder-slate-650 bg-slate-950 border border-slate-800 rounded-xl py-2 focus:outline-none focus:border-indigo-500 transition-colors font-bold text-sm"
+                            >
+                        </div>
+                        {% endif %}
+
+                        <button 
+                            type="submit" 
+                            class="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs tracking-wider transition-colors"
+                        >
+                            Enter Journal
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Quick Access Form for No PIN users -->
+                <form id="direct-form-{{ user.id }}" action="/login" method="post" class="hidden">
+                    <input type="hidden" name="user_id" value="{{ user.id }}">
+                </form>
+
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Create User Section -->
+    <div class="border-t border-slate-850 pt-6">
+        <button 
+            onclick="toggleCreateSection()" 
+            id="toggle-create-btn"
+            class="w-full py-2.5 bg-slate-950/60 hover:bg-slate-900/80 border border-slate-850 hover:border-slate-800 text-slate-350 hover:text-white rounded-2xl font-bold text-xs tracking-wider transition-all flex items-center justify-center gap-1.5"
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+            </svg>
+            Create New Profile
+        </button>
+
+        <div id="create-user-section" class="hidden mt-4 space-y-4 pt-2">
+            <form action="/user/add" method="post" class="space-y-3.5">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Profile Name</label>
+                    <input 
+                        type="text" 
+                        name="name" 
+                        required 
+                        placeholder="e.g. Alice"
+                        class="w-full bg-slate-950 border border-slate-850 rounded-xl px-3.5 py-2 text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 text-xs transition-colors"
+                    >
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Optional PIN (Numeric)</label>
+                    <p class="text-[9px] text-slate-500 mb-1.5">Leave blank for open access with no passcode</p>
+                    <input 
+                        type="password" 
+                        name="pin" 
+                        placeholder="e.g. 1234"
+                        pattern="[0-9]*" 
+                        inputmode="numeric" 
+                        maxlength="8"
+                        class="w-full bg-slate-950 border border-slate-850 rounded-xl px-3.5 py-2 text-white placeholder-slate-650 focus:outline-none focus:border-indigo-500 text-xs transition-colors tracking-widest"
+                    >
+                </div>
+
+                <div class="flex gap-2">
+                    <button 
+                        type="button" 
+                        onclick="toggleCreateSection()"
+                        class="flex-1 py-2 bg-slate-950 hover:bg-slate-900 border border-slate-850 text-slate-400 rounded-xl font-bold text-xs tracking-wider transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        type="submit" 
+                        class="flex-1 py-2 bg-indigo-650 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs tracking-wider transition-colors"
+                    >
+                        Create & Login
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function togglePinInput(element) {
+        const userId = element.getAttribute('data-user-id');
+        const hasPin = element.getAttribute('data-has-pin') === 'true';
+
+        if (!hasPin) {
+            // If there's no PIN, just submit the form immediately
+            document.getElementById('direct-form-' + userId).submit();
+            return;
+        }
+
+        // Otherwise, toggle the PIN input section
+        const pinSections = document.querySelectorAll('[id^="pin-section-"]');
+        pinSections.forEach(sec => {
+            if (sec.id === 'pin-section-' + userId) {
+                sec.classList.toggle('hidden');
+                if (!sec.classList.contains('hidden')) {
+                    const input = sec.querySelector('input[name="pin"]');
+                    if (input) input.focus();
+                }
+            } else {
+                sec.classList.add('hidden');
+            }
+        });
+    }
+
+    function toggleCreateSection() {
+        const sec = document.getElementById('create-user-section');
+        const btn = document.getElementById('toggle-create-btn');
+        sec.classList.toggle('hidden');
+        btn.classList.toggle('hidden');
+    }
+</script>
+{% endblock %}

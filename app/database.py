@@ -109,6 +109,22 @@ def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
     
+    # Create users table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        pin TEXT
+    );
+    """)
+    
+    # Insert Default User if table is empty
+    cursor.execute("SELECT COUNT(*) FROM users;")
+    user_count = cursor.fetchone()[0]
+    if user_count == 0:
+        cursor.execute("INSERT INTO users (id, name, pin) VALUES (1, 'Default User', NULL);")
+        conn.commit()
+    
     # 1. Foods lookup database
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS foods (
@@ -133,17 +149,42 @@ def init_db():
     );
     """)
     
-    # 3. Settings / Targets
+    # Check if logs needs migration for user_id
+    cursor.execute("PRAGMA table_info(logs);")
+    columns = [col["name"] for col in cursor.fetchall()]
+    if "user_id" not in columns:
+        logger.info("Adding user_id column to logs table...")
+        cursor.execute("ALTER TABLE logs ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;")
+        cursor.execute("UPDATE logs SET user_id = 1 WHERE user_id IS NULL;")
+        conn.commit()
+        
+    # 3. User targets table
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS targets (
-        key TEXT PRIMARY KEY,
-        value REAL NOT NULL
+    CREATE TABLE IF NOT EXISTS user_targets (
+        user_id INTEGER NOT NULL,
+        key TEXT NOT NULL,
+        value REAL NOT NULL,
+        PRIMARY KEY (user_id, key),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
     """)
     
-    conn.commit()
-    
-    # Seed default target goals
+    # Check if old targets table exists and migrate it
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='targets';")
+    old_targets_exists = cursor.fetchone()
+    if old_targets_exists:
+        logger.info("Migrating old targets to user_targets for user 1...")
+        cursor.execute("SELECT key, value FROM targets;")
+        old_rows = cursor.fetchall()
+        for row in old_rows:
+            cursor.execute("""
+            INSERT OR IGNORE INTO user_targets (user_id, key, value)
+            VALUES (1, ?, ?);
+            """, (row["key"], row["value"]))
+        cursor.execute("DROP TABLE targets;")
+        conn.commit()
+        
+    # Seed default target goals for user 1 if not exists
     default_targets = {
         "daily_calorie_target": 2000.0,
         "daily_protein_target": 150.0,
@@ -151,7 +192,7 @@ def init_db():
         "daily_fat_target": 70.0
     }
     for key, val in default_targets.items():
-        cursor.execute("INSERT OR IGNORE INTO targets (key, value) VALUES (?, ?);", (key, val))
+        cursor.execute("INSERT OR IGNORE INTO user_targets (user_id, key, value) VALUES (1, ?, ?);", (key, val))
     
     conn.commit()
     
@@ -167,3 +208,4 @@ def init_db():
             seed_foods_fallback(conn)
             
     conn.close()
+

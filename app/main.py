@@ -39,12 +39,144 @@ templates = Jinja2Templates(directory="app/templates")
 def startup_event():
     init_db()
 
-def get_daily_metrics(conn, date_str: str = None):
+def get_current_user_id(request: Request) -> int:
+    user_id_cookie = request.cookies.get("user_id")
+    if not user_id_cookie:
+        return None
+    try:
+        user_id = int(user_id_cookie)
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM users WHERE id = ?;", (user_id,))
+        user = cursor.fetchone()
+        conn.close()
+        if user:
+            return user_id
+    except ValueError:
+        pass
+    return None
+
+def get_user_details(user_id: int):
+    if not user_id:
+        return None
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name, pin FROM users WHERE id = ?;", (user_id,))
+    user = cursor.fetchone()
+    conn.close()
+    if user:
+        return {"id": user["id"], "name": user["name"], "has_pin": user["pin"] is not None and user["pin"].strip() != ""}
+    return None
+
+def get_all_users():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name, pin FROM users;")
+    rows = cursor.fetchall()
+    conn.close()
+    return [{"id": r["id"], "name": r["name"], "has_pin": r["pin"] is not None and r["pin"].strip() != ""} for r in rows]
+
+@app.get("/login", response_class=HTMLResponse)
+def login_view(request: Request, error: str = None, success: str = None, select_user: int = None):
+    if get_current_user_id(request) is not None:
+        return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+    users = get_all_users()
+    return templates.TemplateResponse(request, "login.html", {
+        "users": users,
+        "error": error,
+        "success": success,
+        "select_user": select_user
+    })
+
+@app.post("/login")
+def login_post(request: Request, user_id: int = Form(...), pin: str = Form(None)):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT pin FROM users WHERE id = ?;", (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    
+    if not row:
+        return RedirectResponse(url="/login?error=Invalid+user", status_code=status.HTTP_303_SEE_OTHER)
+        
+    db_pin = row["pin"]
+    if db_pin and db_pin.strip() != "":
+        if not pin or pin.strip() != db_pin.strip():
+            return RedirectResponse(url=f"/login?error=Incorrect+PIN&select_user={user_id}", status_code=status.HTTP_303_SEE_OTHER)
+            
+    response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+    response.set_cookie("user_id", str(user_id), max_age=31536000, httponly=True)
+    return response
+
+@app.get("/logout")
+def logout(request: Request):
+    response = RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+    response.delete_cookie("user_id")
+    return response
+
+@app.post("/user/add")
+def add_user(request: Request, name: str = Form(...), pin: str = Form(None)):
+    name = name.strip()
+    if not name:
+        return RedirectResponse(url="/login?error=Username+cannot+be+empty", status_code=status.HTTP_303_SEE_OTHER)
+        
+    pin_val = pin.strip() if pin else None
+    if pin_val == "":
+        pin_val = None
+        
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("INSERT INTO users (name, pin) VALUES (?, ?);", (name, pin_val))
+        new_user_id = cursor.lastrowid
+        
+        # Initialize default targets for this new user
+        default_targets = {
+            "daily_calorie_target": 2000.0,
+            "daily_protein_target": 150.0,
+            "daily_carbs_target": 200.0,
+            "daily_fat_target": 70.0
+        }
+        for key, val in default_targets.items():
+            cursor.execute("INSERT INTO user_targets (user_id, key, value) VALUES (?, ?, ?);", (new_user_id, key, val))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        return RedirectResponse(url="/login?error=Username+already+exists", status_code=status.HTTP_303_SEE_OTHER)
+    
+    conn.close()
+    
+    response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+    response.set_cookie("user_id", str(new_user_id), max_age=31536000, httponly=True)
+    return response
+
+@app.get("/user/switch/{target_user_id}")
+def switch_user(request: Request, target_user_id: int):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT pin FROM users WHERE id = ?;", (target_user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    
+    if not row:
+        return RedirectResponse(url="/login?error=User+not+found", status_code=status.HTTP_303_SEE_OTHER)
+        
+    db_pin = row["pin"]
+    if db_pin and db_pin.strip() != "":
+        # Has PIN, must log in via login page
+        return RedirectResponse(url=f"/login?select_user={target_user_id}", status_code=status.HTTP_303_SEE_OTHER)
+        
+    # No PIN, switch immediately
+    response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+    response.set_cookie("user_id", str(target_user_id), max_age=31536000, httponly=True)
+    return response
+
+def get_daily_metrics(conn, user_id: int, date_str: str = None):
     if not date_str:
         date_str = datetime.now().strftime("%Y-%m-%d")
         
     cursor = conn.cursor()
-    cursor.execute("SELECT key, value FROM targets;")
+    cursor.execute("SELECT key, value FROM user_targets WHERE user_id = ?;", (user_id,))
     targets = {row["key"]: row["value"] for row in cursor.fetchall()}
     
     daily_cal_target = targets.get("daily_calorie_target", 2000.0)
@@ -60,8 +192,8 @@ def get_daily_metrics(conn, date_str: str = None):
         COALESCE(SUM(l.quantity * f.fat), 0.0) as total_fat
     FROM logs l
     JOIN foods f ON l.food_id = f.id
-    WHERE date(l.timestamp) = ?;
-    """, (date_str,))
+    WHERE date(l.timestamp) = ? AND l.user_id = ?;
+    """, (date_str, user_id))
     totals = cursor.fetchone()
     
     total_cal = totals["total_calories"]
@@ -113,7 +245,7 @@ def get_daily_metrics(conn, date_str: str = None):
         }
     }
 
-def get_grouped_history(conn, date_str: str = None):
+def get_grouped_history(conn, user_id: int, date_str: str = None):
     cursor = conn.cursor()
     if date_str:
         cursor.execute("""
@@ -131,9 +263,9 @@ def get_grouped_history(conn, date_str: str = None):
             f.unit
         FROM logs l
         JOIN foods f ON l.food_id = f.id
-        WHERE date(l.timestamp) = ?
+        WHERE date(l.timestamp) = ? AND l.user_id = ?
         ORDER BY l.timestamp DESC;
-        """, (date_str,))
+        """, (date_str, user_id))
     else:
         cursor.execute("""
         SELECT 
@@ -150,8 +282,9 @@ def get_grouped_history(conn, date_str: str = None):
             f.unit
         FROM logs l
         JOIN foods f ON l.food_id = f.id
+        WHERE l.user_id = ?
         ORDER BY l.timestamp DESC;
-        """)
+        """, (user_id,))
     rows = cursor.fetchall()
     
     grouped = {}
@@ -207,7 +340,7 @@ def get_grouped_history(conn, date_str: str = None):
             
     return grouped
 
-def get_calendar_days_data(conn, start_date, end_date, target_goals, mode):
+def get_calendar_days_data(conn, user_id: int, start_date, end_date, target_goals, mode):
     # Retrieve targets
     daily_cal_target = target_goals.get("daily_calorie_target", 2000.0)
     daily_prot_target = target_goals.get("daily_protein_target", 150.0)
@@ -226,9 +359,9 @@ def get_calendar_days_data(conn, start_date, end_date, target_goals, mode):
         COALESCE(SUM(l.quantity * f.fat), 0.0) as total_fat
     FROM logs l
     JOIN foods f ON l.food_id = f.id
-    WHERE date(l.timestamp) BETWEEN ? AND ?
+    WHERE l.user_id = ? AND date(l.timestamp) BETWEEN ? AND ?
     GROUP BY date(l.timestamp);
-    """, (start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")))
+    """, (user_id, start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")))
     
     db_data = {row["log_date"]: row for row in cursor.fetchall()}
     
@@ -241,9 +374,9 @@ def get_calendar_days_data(conn, start_date, end_date, target_goals, mode):
         l.quantity * f.calories as calories
     FROM logs l
     JOIN foods f ON l.food_id = f.id
-    WHERE date(l.timestamp) BETWEEN ? AND ?
+    WHERE l.user_id = ? AND date(l.timestamp) BETWEEN ? AND ?
     ORDER BY l.timestamp DESC;
-    """, (start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")))
+    """, (user_id, start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")))
     
     for row in cursor.fetchall():
         d_str = row["log_date"]
@@ -331,6 +464,10 @@ def get_calendar_days_data(conn, start_date, end_date, target_goals, mode):
 
 @app.get("/", response_class=HTMLResponse)
 def index_view(request: Request, date: str = None):
+    user_id = get_current_user_id(request)
+    if user_id is None:
+        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+        
     # Parse date or default to today
     if not date:
         date = datetime.now().strftime("%Y-%m-%d")
@@ -360,8 +497,8 @@ def index_view(request: Request, date: str = None):
         selected_day_name = date_obj.strftime("%A")
         
     conn = get_db_connection()
-    metrics = get_daily_metrics(conn, date)
-    history = get_grouped_history(conn, date)
+    metrics = get_daily_metrics(conn, user_id, date)
+    history = get_grouped_history(conn, user_id, date)
     conn.close()
     
     return templates.TemplateResponse(request, "index.html", {
@@ -373,11 +510,17 @@ def index_view(request: Request, date: str = None):
         "selected_day_name": selected_day_name,
         "prev_date": prev_date,
         "next_date": next_date,
-        "today_date": today_str
+        "today_date": today_str,
+        "current_user": get_user_details(user_id),
+        "all_users": get_all_users()
     })
 
 @app.get("/calendar", response_class=HTMLResponse)
 def calendar_view(request: Request, view: str = "week", mode: str = "calorie"):
+    user_id = get_current_user_id(request)
+    if user_id is None:
+        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+        
     if view not in ["week", "month", "year"]:
         view = "week"
     if mode not in ["calorie", "macro", "average"]:
@@ -385,7 +528,7 @@ def calendar_view(request: Request, view: str = "week", mode: str = "calorie"):
         
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT key, value FROM targets;")
+    cursor.execute("SELECT key, value FROM user_targets WHERE user_id = ?;", (user_id,))
     targets = {row["key"]: row["value"] for row in cursor.fetchall()}
     
     today = datetime.now().date()
@@ -396,7 +539,7 @@ def calendar_view(request: Request, view: str = "week", mode: str = "calorie"):
     if view == "week":
         start_of_week = today - timedelta(days=today.weekday())
         end_of_week = start_of_week + timedelta(days=6)
-        days = get_calendar_days_data(conn, start_of_week, end_of_week, targets, mode)
+        days = get_calendar_days_data(conn, user_id, start_of_week, end_of_week, targets, mode)
         
     elif view == "month":
         start_of_month = today.replace(day=1)
@@ -406,7 +549,7 @@ def calendar_view(request: Request, view: str = "week", mode: str = "calorie"):
         last_day = py_calendar.monthrange(today.year, today.month)[1]
         end_of_month = today.replace(day=last_day)
         
-        days = get_calendar_days_data(conn, start_of_month, end_of_month, targets, mode)
+        days = get_calendar_days_data(conn, user_id, start_of_month, end_of_month, targets, mode)
         month_name = today.strftime("%B")
         year_num = today.year
         
@@ -414,7 +557,7 @@ def calendar_view(request: Request, view: str = "week", mode: str = "calorie"):
         start_of_year_raw = today - timedelta(days=364)
         start_of_year = start_of_year_raw - timedelta(days=start_of_year_raw.weekday())
         end_of_year = today + timedelta(days=(6 - today.weekday()))
-        days = get_calendar_days_data(conn, start_of_year, end_of_year, targets, mode)
+        days = get_calendar_days_data(conn, user_id, start_of_year, end_of_year, targets, mode)
         
     conn.close()
     
@@ -425,21 +568,29 @@ def calendar_view(request: Request, view: str = "week", mode: str = "calorie"):
         "days": days,
         "spacers": spacers,
         "month_name": month_name,
-        "year_num": year_num
+        "year_num": year_num,
+        "current_user": get_user_details(user_id),
+        "all_users": get_all_users()
     })
 
 @app.get("/config", response_class=HTMLResponse)
 def config_view(request: Request, success: str = None):
+    user_id = get_current_user_id(request)
+    if user_id is None:
+        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+        
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT key, value FROM targets;")
+    cursor.execute("SELECT key, value FROM user_targets WHERE user_id = ?;", (user_id,))
     targets = {row["key"]: row["value"] for row in cursor.fetchall()}
     conn.close()
     
     return templates.TemplateResponse(request, "config.html", {
         "active_tab": "config",
         "targets": targets,
-        "success": success
+        "success": success,
+        "current_user": get_user_details(user_id),
+        "all_users": get_all_users()
     })
 
 async def search_openfoodfacts(query: str) -> list:
@@ -552,6 +703,9 @@ async def search_usda(query: str) -> list:
 
 @app.post("/search", response_class=HTMLResponse)
 async def search_foods(request: Request, search_query: str = Form(""), search_online: str = Form(None)):
+    user_id = get_current_user_id(request)
+    if user_id is None:
+        return HTMLResponse(content="<script>window.location.reload();</script>", status_code=200)
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -618,6 +772,10 @@ def add_food(
     unit: str = Form("g"),
     redirect_to: str = Form("/")
 ):
+    user_id = get_current_user_id(request)
+    if user_id is None:
+        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+        
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -650,6 +808,10 @@ def add_log(
     quantity: float = Form(...),
     log_date: str = Form(None)
 ):
+    user_id = get_current_user_id(request)
+    if user_id is None:
+        return HTMLResponse(content="<script>window.location.reload();</script>", status_code=200)
+        
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -684,13 +846,13 @@ def add_log(
     timestamp = f"{log_date} {current_time_str}"
     
     cursor.execute("""
-    INSERT INTO logs (food_id, quantity, timestamp)
-    VALUES (?, ?, ?);
-    """, (final_food_id, quantity, timestamp))
+    INSERT INTO logs (food_id, quantity, timestamp, user_id)
+    VALUES (?, ?, ?, ?);
+    """, (final_food_id, quantity, timestamp, user_id))
     conn.commit()
     
-    metrics = get_daily_metrics(conn, log_date)
-    history = get_grouped_history(conn, log_date)
+    metrics = get_daily_metrics(conn, user_id, log_date)
+    history = get_grouped_history(conn, user_id, log_date)
     conn.close()
     
     return templates.TemplateResponse(request, "history.html", {
@@ -701,14 +863,18 @@ def add_log(
 
 @app.delete("/log/{log_id}", response_class=HTMLResponse)
 def delete_log(request: Request, log_id: int, date: str = None):
+    user_id = get_current_user_id(request)
+    if user_id is None:
+        return HTMLResponse(content="<script>window.location.reload();</script>", status_code=200)
+        
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute("DELETE FROM logs WHERE id = ?;", (log_id,))
+    cursor.execute("DELETE FROM logs WHERE id = ? AND user_id = ?;", (log_id, user_id))
     conn.commit()
     
-    metrics = get_daily_metrics(conn, date)
-    history = get_grouped_history(conn, date)
+    metrics = get_daily_metrics(conn, user_id, date)
+    history = get_grouped_history(conn, user_id, date)
     conn.close()
     
     return templates.TemplateResponse(request, "history.html", {
@@ -725,13 +891,17 @@ def update_settings(
     daily_carbs_target: float = Form(...),
     daily_fat_target: float = Form(...)
 ):
+    user_id = get_current_user_id(request)
+    if user_id is None:
+        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+        
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute("UPDATE targets SET value = ? WHERE key = 'daily_calorie_target';", (daily_calorie_target,))
-    cursor.execute("UPDATE targets SET value = ? WHERE key = 'daily_protein_target';", (daily_protein_target,))
-    cursor.execute("UPDATE targets SET value = ? WHERE key = 'daily_carbs_target';", (daily_carbs_target,))
-    cursor.execute("UPDATE targets SET value = ? WHERE key = 'daily_fat_target';", (daily_fat_target,))
+    cursor.execute("INSERT OR REPLACE INTO user_targets (user_id, key, value) VALUES (?, 'daily_calorie_target', ?);", (user_id, daily_calorie_target))
+    cursor.execute("INSERT OR REPLACE INTO user_targets (user_id, key, value) VALUES (?, 'daily_protein_target', ?);", (user_id, daily_protein_target))
+    cursor.execute("INSERT OR REPLACE INTO user_targets (user_id, key, value) VALUES (?, 'daily_carbs_target', ?);", (user_id, daily_carbs_target))
+    cursor.execute("INSERT OR REPLACE INTO user_targets (user_id, key, value) VALUES (?, 'daily_fat_target', ?);", (user_id, daily_fat_target))
     conn.commit()
     conn.close()
     
@@ -779,6 +949,9 @@ async def estimate_macros_with_gemini(query: str, api_key: str) -> dict:
 
 @app.post("/food/ai-estimate", response_class=HTMLResponse)
 async def ai_estimate_view(request: Request, ai_query: str = Form("")):
+    user_id = get_current_user_id(request)
+    if user_id is None:
+        return HTMLResponse(content="<script>window.location.reload();</script>", status_code=200)
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key and os.path.exists(".env"):
         with open(".env") as f:
