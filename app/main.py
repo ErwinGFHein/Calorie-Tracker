@@ -717,6 +717,98 @@ def delete_log(request: Request, log_id: int, date: str = None):
         "selected_date": date
     })
 
+@app.get("/log/{log_id}/edit", response_class=HTMLResponse)
+def edit_log_view(request: Request, log_id: int, date: str = None):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT 
+            l.id as log_id, 
+            l.quantity, 
+            l.timestamp,
+            f.name, 
+            f.unit
+        FROM logs l
+        JOIN foods f ON l.food_id = f.id
+        WHERE l.id = ?;
+    """, (log_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return HTMLResponse(status_code=404, content="Log entry not found")
+    
+    item = {
+        "log_id": row["log_id"],
+        "name": row["name"],
+        "quantity": row["quantity"],
+        "unit": row["unit"],
+        "time": row["timestamp"].split()[1][:5] if row["timestamp"] and len(row["timestamp"].split()) > 1 else ""
+    }
+    return templates.TemplateResponse(request, "log_item_edit.html", {
+        "item": item,
+        "selected_date": date
+    })
+
+@app.get("/log/{log_id}/normal", response_class=HTMLResponse)
+def normal_log_view(request: Request, log_id: int, date: str = None):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT 
+            l.id as log_id, 
+            l.quantity, 
+            l.timestamp,
+            f.id as food_id,
+            f.name, 
+            f.calories,
+            f.protein,
+            f.carbs,
+            f.fat,
+            f.unit
+        FROM logs l
+        JOIN foods f ON l.food_id = f.id
+        WHERE l.id = ?;
+    """, (log_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return HTMLResponse(status_code=404, content="Log entry not found")
+    
+    qty = row["quantity"]
+    item = {
+        "log_id": row["log_id"],
+        "food_id": row["food_id"],
+        "name": row["name"],
+        "quantity": qty,
+        "unit": row["unit"],
+        "calories": round(qty * row["calories"], 1),
+        "protein": round(qty * row["protein"], 1),
+        "carbs": round(qty * row["carbs"], 1),
+        "fat": round(qty * row["fat"], 1),
+        "time": row["timestamp"].split()[1][:5] if row["timestamp"] and len(row["timestamp"].split()) > 1 else ""
+    }
+    return templates.TemplateResponse(request, "log_item.html", {
+        "item": item,
+        "selected_date": date
+    })
+
+@app.post("/log/{log_id}/edit", response_class=HTMLResponse)
+def edit_log(request: Request, log_id: int, quantity: float = Form(...), date: str = None):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE logs SET quantity = ? WHERE id = ?;", (quantity, log_id))
+    conn.commit()
+    
+    metrics = get_daily_metrics(conn, date)
+    history = get_grouped_history(conn, date)
+    conn.close()
+    
+    return templates.TemplateResponse(request, "history.html", {
+        "metrics": metrics,
+        "history": history,
+        "selected_date": date
+    })
+
 @app.post("/settings/update")
 def update_settings(
     request: Request,
