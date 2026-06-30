@@ -574,11 +574,12 @@ async def search_foods(request: Request, search_query: str = Form(""), search_on
         external_foods = []
     else:
         cursor.execute("""
-        SELECT id, name, calories, protein, carbs, fat, unit 
+        SELECT id, name, calories, protein, carbs, fat, unit, fuzzy_match(?, name) AS score
         FROM foods 
-        WHERE name LIKE ? 
+        WHERE fuzzy_match(?, name) > 0.5
+        ORDER BY score DESC
         LIMIT 10;
-        """, (f"%{search_query.strip()}%",))
+        """, (search_query.strip(), search_query.strip()))
         local_results = cursor.fetchall()
         for r in local_results:
             local_foods.append({
