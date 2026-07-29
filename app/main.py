@@ -171,6 +171,28 @@ def switch_user(request: Request, target_user_id: int):
     response.set_cookie("user_id", str(target_user_id), max_age=31536000, httponly=True)
     return response
 
+@app.post("/user/rename")
+def rename_user(request: Request, name: str = Form(...)):
+    user_id = get_current_user_id(request)
+    if user_id is None:
+        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+        
+    name = name.strip()
+    if not name:
+        return RedirectResponse(url="/config?error=profile_name_empty", status_code=status.HTTP_303_SEE_OTHER)
+        
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("UPDATE users SET name = ? WHERE id = ?;", (name, user_id))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        return RedirectResponse(url="/config?error=profile_name_exists", status_code=status.HTTP_303_SEE_OTHER)
+        
+    conn.close()
+    return RedirectResponse(url="/config?success=profile", status_code=status.HTTP_303_SEE_OTHER)
+
 def get_daily_metrics(conn, user_id: int, date_str: str = None):
     if not date_str:
         date_str = datetime.now().strftime("%Y-%m-%d")
@@ -574,7 +596,7 @@ def calendar_view(request: Request, view: str = "week", mode: str = "calorie"):
     })
 
 @app.get("/config", response_class=HTMLResponse)
-def config_view(request: Request, success: str = None):
+def config_view(request: Request, success: str = None, error: str = None):
     user_id = get_current_user_id(request)
     if user_id is None:
         return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
@@ -589,6 +611,7 @@ def config_view(request: Request, success: str = None):
         "active_tab": "config",
         "targets": targets,
         "success": success,
+        "error": error,
         "current_user": get_user_details(user_id),
         "all_users": get_all_users()
     })
@@ -886,6 +909,10 @@ def delete_log(request: Request, log_id: int, date: str = None):
 
 @app.get("/log/{log_id}/edit", response_class=HTMLResponse)
 def edit_log_view(request: Request, log_id: int, date: str = None):
+    user_id = get_current_user_id(request)
+    if user_id is None:
+        return HTMLResponse(content="<script>window.location.reload();</script>", status_code=200)
+        
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -897,8 +924,8 @@ def edit_log_view(request: Request, log_id: int, date: str = None):
             f.unit
         FROM logs l
         JOIN foods f ON l.food_id = f.id
-        WHERE l.id = ?;
-    """, (log_id,))
+        WHERE l.id = ? AND l.user_id = ?;
+    """, (log_id, user_id))
     row = cursor.fetchone()
     conn.close()
     if not row:
@@ -918,6 +945,10 @@ def edit_log_view(request: Request, log_id: int, date: str = None):
 
 @app.get("/log/{log_id}/normal", response_class=HTMLResponse)
 def normal_log_view(request: Request, log_id: int, date: str = None):
+    user_id = get_current_user_id(request)
+    if user_id is None:
+        return HTMLResponse(content="<script>window.location.reload();</script>", status_code=200)
+        
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -934,8 +965,8 @@ def normal_log_view(request: Request, log_id: int, date: str = None):
             f.unit
         FROM logs l
         JOIN foods f ON l.food_id = f.id
-        WHERE l.id = ?;
-    """, (log_id,))
+        WHERE l.id = ? AND l.user_id = ?;
+    """, (log_id, user_id))
     row = cursor.fetchone()
     conn.close()
     if not row:
@@ -961,13 +992,17 @@ def normal_log_view(request: Request, log_id: int, date: str = None):
 
 @app.post("/log/{log_id}/edit", response_class=HTMLResponse)
 def edit_log(request: Request, log_id: int, quantity: float = Form(...), date: str = None):
+    user_id = get_current_user_id(request)
+    if user_id is None:
+        return HTMLResponse(content="<script>window.location.reload();</script>", status_code=200)
+        
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE logs SET quantity = ? WHERE id = ?;", (quantity, log_id))
+    cursor.execute("UPDATE logs SET quantity = ? WHERE id = ? AND user_id = ?;", (quantity, log_id, user_id))
     conn.commit()
     
-    metrics = get_daily_metrics(conn, date)
-    history = get_grouped_history(conn, date)
+    metrics = get_daily_metrics(conn, user_id, date)
+    history = get_grouped_history(conn, user_id, date)
     conn.close()
     
     return templates.TemplateResponse(request, "history.html", {
