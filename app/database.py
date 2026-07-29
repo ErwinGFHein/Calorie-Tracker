@@ -3,6 +3,7 @@ import sqlite3
 import logging
 import csv
 import httpx
+import difflib
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -12,6 +13,52 @@ logger = logging.getLogger(__name__)
 DEFAULT_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "tracker.db")
 DB_PATH = os.environ.get("DATABASE_PATH", DEFAULT_DB_PATH)
 
+def sqlite_fuzzy_match(query: str, target: str) -> float:
+    if not query or not target:
+        return 0.0
+    query = query.strip().lower()
+    target = target.strip().lower()
+    
+    # 1. Exact match gets perfect score
+    if query == target:
+        return 1.0
+        
+    # 2. Entire query is an exact substring of target
+    if query in target:
+        if target.startswith(query):
+            return 0.95 + (len(query) / len(target)) * 0.05
+        return 0.90 + (len(query) / len(target)) * 0.05
+        
+    # 3. Word-by-word matching for typos and out-of-order words
+    target_words = [w.strip(",.()[]{}:;\"'") for w in target.split() if w]
+    query_words = [w for w in query.split() if w]
+    
+    if not query_words or not target_words:
+        return 0.0
+        
+    word_scores = []
+    for qw in query_words:
+        best_word_score = 0.0
+        for tw in target_words:
+            if not tw:
+                continue
+            if qw == tw:
+                score = 1.0
+            elif qw in tw:
+                score = 0.85 if tw.startswith(qw) else 0.75
+            else:
+                ratio = difflib.SequenceMatcher(None, qw, tw).ratio()
+                if ratio >= 0.75:
+                    score = ratio * 0.8
+                else:
+                    score = 0.0
+            if score > best_word_score:
+                best_word_score = score
+        word_scores.append(best_word_score)
+        
+    final_score = sum(word_scores) / len(word_scores)
+    return final_score if final_score >= 0.6 else 0.0
+
 def get_db_connection():
     # Ensure directory exists
     db_dir = os.path.dirname(DB_PATH)
@@ -20,6 +67,7 @@ def get_db_connection():
     
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
+    conn.create_function("fuzzy_match", 2, sqlite_fuzzy_match)
     conn.execute("PRAGMA foreign_keys = ON;")
     return conn
 
