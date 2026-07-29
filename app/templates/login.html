@@ -71,7 +71,7 @@
 
                 <!-- PIN Input Section (only shown when selected/clicked and has PIN) -->
                 <div id="pin-section-{{ user.id }}" class="px-4 pb-4 {% if select_user == user.id %}block{% else %}hidden{% endif %}">
-                    <form action="/login" method="post" class="space-y-3 pt-2 border-t border-slate-900/50">
+                    <form action="{{ request.url_for('login_post') }}" method="post" class="space-y-3 pt-2 border-t border-slate-900/50">
                         <input type="hidden" name="user_id" value="{{ user.id }}">
                         
                         {% if user.has_pin %}
@@ -100,7 +100,7 @@
                 </div>
 
                 <!-- Quick Access Form for No PIN users -->
-                <form id="direct-form-{{ user.id }}" action="/login" method="post" class="hidden">
+                <form id="direct-form-{{ user.id }}" action="{{ request.url_for('login_post') }}" method="post" class="hidden">
                     <input type="hidden" name="user_id" value="{{ user.id }}">
                 </form>
 
@@ -124,7 +124,7 @@
         </button>
 
         <div id="create-user-section" class="hidden mt-4 space-y-4 pt-2">
-            <form action="/user/add" method="post" class="space-y-3.5">
+            <form action="{{ request.url_for('add_user') }}" method="post" class="space-y-3.5">
                 <div>
                     <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Profile Name</label>
                     <input 

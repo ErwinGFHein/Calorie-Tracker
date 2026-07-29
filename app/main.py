@@ -79,7 +79,7 @@ def get_all_users():
 @app.get("/login", response_class=HTMLResponse)
 def login_view(request: Request, error: str = None, success: str = None, select_user: int = None):
     if get_current_user_id(request) is not None:
-        return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=request.url_for('index_view'), status_code=status.HTTP_303_SEE_OTHER)
     users = get_all_users()
     return templates.TemplateResponse(request, "login.html", {
         "users": users,
@@ -97,20 +97,20 @@ def login_post(request: Request, user_id: int = Form(...), pin: str = Form(None)
     conn.close()
     
     if not row:
-        return RedirectResponse(url="/login?error=Invalid+user", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=str(request.url_for('login_view')) + "?error=Invalid+user", status_code=status.HTTP_303_SEE_OTHER)
         
     db_pin = row["pin"]
     if db_pin and db_pin.strip() != "":
         if not pin or pin.strip() != db_pin.strip():
-            return RedirectResponse(url=f"/login?error=Incorrect+PIN&select_user={user_id}", status_code=status.HTTP_303_SEE_OTHER)
+            return RedirectResponse(url=str(request.url_for('login_view')) + f"?error=Incorrect+PIN&select_user={user_id}", status_code=status.HTTP_303_SEE_OTHER)
             
-    response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+    response = RedirectResponse(url=request.url_for('index_view'), status_code=status.HTTP_303_SEE_OTHER)
     response.set_cookie("user_id", str(user_id), max_age=31536000, httponly=True)
     return response
 
 @app.get("/logout")
 def logout(request: Request):
-    response = RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+    response = RedirectResponse(url=request.url_for('login_view'), status_code=status.HTTP_303_SEE_OTHER)
     response.delete_cookie("user_id")
     return response
 
@@ -118,7 +118,7 @@ def logout(request: Request):
 def add_user(request: Request, name: str = Form(...), pin: str = Form(None)):
     name = name.strip()
     if not name:
-        return RedirectResponse(url="/login?error=Username+cannot+be+empty", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=str(request.url_for('login_view')) + "?error=Username+cannot+be+empty", status_code=status.HTTP_303_SEE_OTHER)
         
     pin_val = pin.strip() if pin else None
     if pin_val == "":
@@ -142,11 +142,11 @@ def add_user(request: Request, name: str = Form(...), pin: str = Form(None)):
         conn.commit()
     except sqlite3.IntegrityError:
         conn.close()
-        return RedirectResponse(url="/login?error=Username+already+exists", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=str(request.url_for('login_view')) + "?error=Username+already+exists", status_code=status.HTTP_303_SEE_OTHER)
     
     conn.close()
     
-    response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+    response = RedirectResponse(url=request.url_for('index_view'), status_code=status.HTTP_303_SEE_OTHER)
     response.set_cookie("user_id", str(new_user_id), max_age=31536000, httponly=True)
     return response
 
@@ -159,15 +159,15 @@ def switch_user(request: Request, target_user_id: int):
     conn.close()
     
     if not row:
-        return RedirectResponse(url="/login?error=User+not+found", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=str(request.url_for('login_view')) + "?error=User+not+found", status_code=status.HTTP_303_SEE_OTHER)
         
     db_pin = row["pin"]
     if db_pin and db_pin.strip() != "":
         # Has PIN, must log in via login page
-        return RedirectResponse(url=f"/login?select_user={target_user_id}", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=str(request.url_for('login_view')) + f"?select_user={target_user_id}", status_code=status.HTTP_303_SEE_OTHER)
         
     # No PIN, switch immediately
-    response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+    response = RedirectResponse(url=request.url_for('index_view'), status_code=status.HTTP_303_SEE_OTHER)
     response.set_cookie("user_id", str(target_user_id), max_age=31536000, httponly=True)
     return response
 
@@ -175,11 +175,11 @@ def switch_user(request: Request, target_user_id: int):
 def rename_user(request: Request, name: str = Form(...)):
     user_id = get_current_user_id(request)
     if user_id is None:
-        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=request.url_for('login_view'), status_code=status.HTTP_303_SEE_OTHER)
         
     name = name.strip()
     if not name:
-        return RedirectResponse(url="/config?error=profile_name_empty", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=str(request.url_for('config_view')) + "?error=profile_name_empty", status_code=status.HTTP_303_SEE_OTHER)
         
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -188,10 +188,10 @@ def rename_user(request: Request, name: str = Form(...)):
         conn.commit()
     except sqlite3.IntegrityError:
         conn.close()
-        return RedirectResponse(url="/config?error=profile_name_exists", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=str(request.url_for('config_view')) + "?error=profile_name_exists", status_code=status.HTTP_303_SEE_OTHER)
         
     conn.close()
-    return RedirectResponse(url="/config?success=profile", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url=str(request.url_for('config_view')) + "?success=profile", status_code=status.HTTP_303_SEE_OTHER)
 
 def get_daily_metrics(conn, user_id: int, date_str: str = None):
     if not date_str:
@@ -488,7 +488,7 @@ def get_calendar_days_data(conn, user_id: int, start_date, end_date, target_goal
 def index_view(request: Request, date: str = None):
     user_id = get_current_user_id(request)
     if user_id is None:
-        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=request.url_for('login_view'), status_code=status.HTTP_303_SEE_OTHER)
         
     # Parse date or default to today
     if not date:
@@ -541,7 +541,7 @@ def index_view(request: Request, date: str = None):
 def calendar_view(request: Request, view: str = "week", mode: str = "calorie"):
     user_id = get_current_user_id(request)
     if user_id is None:
-        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=request.url_for('login_view'), status_code=status.HTTP_303_SEE_OTHER)
         
     if view not in ["week", "month", "year"]:
         view = "week"
@@ -599,7 +599,7 @@ def calendar_view(request: Request, view: str = "week", mode: str = "calorie"):
 def config_view(request: Request, success: str = None, error: str = None):
     user_id = get_current_user_id(request)
     if user_id is None:
-        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=request.url_for('login_view'), status_code=status.HTTP_303_SEE_OTHER)
         
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -798,7 +798,7 @@ def add_food(
 ):
     user_id = get_current_user_id(request)
     if user_id is None:
-        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=request.url_for('login_view'), status_code=status.HTTP_303_SEE_OTHER)
         
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -821,7 +821,7 @@ def add_food(
     finally:
         conn.close()
         
-    if redirect_to == "/config":
+    if redirect_to == "/config" or "config" in redirect_to:
         return RedirectResponse(url=str(request.url_for('config_view')) + "?success=food", status_code=status.HTTP_303_SEE_OTHER)
     return RedirectResponse(url=request.url_for('index_view'), status_code=status.HTTP_303_SEE_OTHER)
 
@@ -1021,7 +1021,7 @@ def update_settings(
 ):
     user_id = get_current_user_id(request)
     if user_id is None:
-        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=request.url_for('login_view'), status_code=status.HTTP_303_SEE_OTHER)
         
     conn = get_db_connection()
     cursor = conn.cursor()
