@@ -1,0 +1,383 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header with Action Options -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/40 border border-slate-800/40 p-5 rounded-2xl">
+        <div class="flex items-center gap-3">
+            <div class="p-2.5 bg-indigo-650/15 rounded-xl border border-indigo-500/20 text-indigo-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+            </div>
+            <div>
+                <h2 class="text-lg font-bold text-white tracking-tight">Food Database Catalog</h2>
+                <p class="text-xs text-slate-450 font-medium">Curate search results, edit food properties inline, and duplicate or delete items.</p>
+            </div>
+        </div>
+        
+        <div class="flex flex-wrap items-center gap-3">
+            <!-- Filter Options (Visible / Hidden / All) -->
+            <div class="inline-flex bg-slate-950 p-1 rounded-xl border border-slate-800/80">
+                <a 
+                    href="{{ request.url_for('catalog_view') }}?page=1&query={{ query }}&filter=visible"
+                    class="px-3 py-1.5 text-xs font-bold rounded-lg transition-all {% if filter == 'visible' %}bg-indigo-650 text-white shadow-md{% else %}text-slate-400 hover:text-slate-200{% endif %}"
+                >
+                    Visible Only
+                </a>
+                <a 
+                    href="{{ request.url_for('catalog_view') }}?page=1&query={{ query }}&filter=hidden"
+                    class="px-3 py-1.5 text-xs font-bold rounded-lg transition-all {% if filter == 'hidden' %}bg-indigo-650 text-white shadow-md{% else %}text-slate-400 hover:text-slate-200{% endif %}"
+                >
+                    Hidden Only
+                </a>
+                <a 
+                    href="{{ request.url_for('catalog_view') }}?page=1&query={{ query }}&filter=all"
+                    class="px-3 py-1.5 text-xs font-bold rounded-lg transition-all {% if filter == 'all' %}bg-indigo-650 text-white shadow-md{% else %}text-slate-400 hover:text-slate-200{% endif %}"
+                >
+                    All Foods
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search & Pagination Top Panel -->
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <!-- Live Search -->
+        <div class="relative w-full sm:max-w-md">
+            <input 
+                type="text" 
+                name="query" 
+                value="{{ query }}"
+                placeholder="Search catalog by food name..." 
+                class="w-full px-4 py-2.5 pl-10 rounded-xl bg-slate-900/60 border border-slate-800/80 focus:border-indigo-500/50 text-slate-100 text-sm placeholder-slate-500 focus:outline-none transition-colors"
+                hx-get="{{ request.url_for('catalog_view') }}"
+                hx-trigger="keyup changed delay:300ms"
+                hx-target="body"
+                hx-push-url="true"
+                hx-include="#catalog-search-filter"
+                autocomplete="off"
+            >
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            </div>
+            <input type="hidden" id="catalog-search-filter" name="filter" value="{{ filter }}">
+        </div>
+        
+        <!-- Top Pagination Info -->
+        <div class="text-xs text-slate-400 font-medium">
+            Showing <span class="text-white font-semibold">{{ foods | length }}</span> of <span class="text-white font-semibold">{{ total_items }}</span> items (Page {{ page }} of {{ total_pages }})
+        </div>
+    </div>
+
+    <!-- Spreadsheet Table Container -->
+    <div class="bg-slate-950/65 border border-slate-850/60 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-md">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                    <tr class="bg-slate-900/60 border-b border-slate-800/80 text-slate-400 uppercase tracking-wider font-bold">
+                        <th class="p-3 pl-4">Food Item Name</th>
+                        <th class="p-3 w-28">Unit</th>
+                        <th class="p-3 w-28">Calories (kcal)</th>
+                        <th class="p-3 w-24">Protein (g)</th>
+                        <th class="p-3 w-24">Carbs (g)</th>
+                        <th class="p-3 w-24">Fat (g)</th>
+                        <th class="p-3 w-24 text-center">Search Visibility</th>
+                        <th class="p-3 pr-4 text-right w-44">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-900/70">
+                    {% if foods %}
+                        {% for food in foods %}
+                            <tr id="food-row-{{ food.id }}" class="hover:bg-slate-900/35 transition-all group">
+                                <!-- Hidden inputs to preserve page state in action submissions -->
+                                <input type="hidden" name="page" value="{{ page }}">
+                                <input type="hidden" name="query" value="{{ query }}">
+                                <input type="hidden" name="filter" value="{{ filter }}">
+                                
+                                <!-- Name Input -->
+                                <td class="p-2.5 pl-4">
+                                    <input 
+                                        type="text" 
+                                        name="name" 
+                                        value="{{ food.name }}" 
+                                        class="w-full px-2.5 py-1.5 rounded-lg bg-transparent hover:bg-slate-900 focus:bg-slate-900 border border-transparent hover:border-slate-800 focus:border-indigo-500/50 text-white font-medium focus:outline-none transition-all"
+                                        required
+                                        oninput="markRowDirty('{{ food.id }}')"
+                                    >
+                                </td>
+                                
+                                <!-- Unit Select -->
+                                <td class="p-2.5">
+                                    <select 
+                                        name="unit" 
+                                        class="w-full px-2.5 py-1.5 rounded-lg bg-transparent hover:bg-slate-900 focus:bg-slate-900 border border-transparent hover:border-slate-800 focus:border-indigo-500/50 text-slate-300 font-semibold focus:outline-none transition-all cursor-pointer"
+                                        onchange="markRowDirty('{{ food.id }}'); updateUnitHeaders('{{ food.id }}', this.value)"
+                                    >
+                                        <option value="g" {% if food.unit == 'g' %}selected{% endif %} class="bg-slate-900 text-white">Grams (g)</option>
+                                        <option value="piece" {% if food.unit == 'piece' %}selected{% endif %} class="bg-slate-900 text-white">Piece</option>
+                                        <option value="serving" {% if food.unit == 'serving' %}selected{% endif %} class="bg-slate-900 text-white">Serving</option>
+                                    </select>
+                                </td>
+                                
+                                <!-- Calories Input -->
+                                <td class="p-2.5">
+                                    <div class="relative flex items-center">
+                                        <input 
+                                            type="number" 
+                                            name="calories" 
+                                            value="{{ food.calories }}" 
+                                            step="any"
+                                            min="0"
+                                            class="w-full px-2.5 py-1.5 rounded-lg bg-transparent hover:bg-slate-900 focus:bg-slate-900 border border-transparent hover:border-slate-800 focus:border-indigo-500/50 text-slate-100 font-bold focus:outline-none transition-all"
+                                            required
+                                            oninput="markRowDirty('{{ food.id }}')"
+                                        >
+                                        <span class="absolute right-2.5 text-[9px] text-slate-500 font-bold pointer-events-none select-none row-unit-help-{{ food.id }}">
+                                            {% if food.unit == 'g' %}per 100g{% else %}per unit{% endif %}
+                                        </span>
+                                    </div>
+                                </td>
+                                
+                                <!-- Protein Input -->
+                                <td class="p-2.5">
+                                    <input 
+                                        type="number" 
+                                        name="protein" 
+                                        value="{{ food.protein }}" 
+                                        step="any"
+                                        min="0"
+                                        class="w-full px-2.5 py-1.5 rounded-lg bg-transparent hover:bg-slate-900 focus:bg-slate-900 border border-transparent hover:border-slate-800 focus:border-indigo-500/50 text-emerald-450 font-semibold focus:outline-none transition-all"
+                                        required
+                                        oninput="markRowDirty('{{ food.id }}')"
+                                    >
+                                </td>
+                                
+                                <!-- Carbs Input -->
+                                <td class="p-2.5">
+                                    <input 
+                                        type="number" 
+                                        name="carbs" 
+                                        value="{{ food.carbs }}" 
+                                        step="any"
+                                        min="0"
+                                        class="w-full px-2.5 py-1.5 rounded-lg bg-transparent hover:bg-slate-900 focus:bg-slate-900 border border-transparent hover:border-slate-800 focus:border-indigo-500/50 text-amber-450 font-semibold focus:outline-none transition-all"
+                                        required
+                                        oninput="markRowDirty('{{ food.id }}')"
+                                    >
+                                </td>
+                                
+                                <!-- Fat Input -->
+                                <td class="p-2.5">
+                                    <input 
+                                        type="number" 
+                                        name="fat" 
+                                        value="{{ food.fat }}" 
+                                        step="any"
+                                        min="0"
+                                        class="w-full px-2.5 py-1.5 rounded-lg bg-transparent hover:bg-slate-900 focus:bg-slate-900 border border-transparent hover:border-slate-800 focus:border-indigo-500/50 text-rose-450 font-semibold focus:outline-none transition-all"
+                                        required
+                                        oninput="markRowDirty('{{ food.id }}')"
+                                    >
+                                </td>
+                                
+                                <!-- Visibility Toggle Switch -->
+                                <td class="p-2.5 text-center">
+                                    <button 
+                                        type="button"
+                                        hx-post="{{ request.url_for('toggle_food_visibility', food_id=food.id) }}"
+                                        hx-include="#food-row-{{ food.id }} input"
+                                        class="p-1.5 rounded-lg border transition-all text-xs font-bold tracking-wider inline-flex items-center gap-1 cursor-pointer select-none {% if food.is_hidden %}bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20{% else %}bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20{% endif %}"
+                                        title="Toggle search visibility for your user"
+                                    >
+                                        {% if food.is_hidden %}
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
+                                            </svg>
+                                            <span>Hidden</span>
+                                        {% else %}
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                            </svg>
+                                            <span>Visible</span>
+                                        {% endif %}
+                                    </button>
+                                </td>
+                                
+                                <!-- Actions Panel -->
+                                <td class="p-2.5 pr-4 text-right">
+                                    <div class="flex items-center justify-end gap-1.5">
+                                        <!-- Save Row Button -->
+                                        <button 
+                                            type="button" 
+                                            id="save-btn-{{ food.id }}"
+                                            hx-post="{{ request.url_for('update_catalog_food', food_id=food.id) }}" 
+                                            hx-include="#food-row-{{ food.id }} input, #food-row-{{ food.id }} select"
+                                            class="px-2 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 opacity-40 cursor-not-allowed transition-all font-bold flex items-center gap-1"
+                                            disabled
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                            <span>Save</span>
+                                        </button>
+                                        
+                                        <!-- Duplicate Row Button -->
+                                        <button 
+                                            type="button" 
+                                            hx-post="{{ request.url_for('duplicate_catalog_food', food_id=food.id) }}" 
+                                            hx-include="#food-row-{{ food.id }} input"
+                                            class="p-1.5 rounded-lg border border-slate-800 bg-slate-900 text-indigo-400 hover:text-white hover:bg-indigo-650 transition-all font-bold flex items-center gap-1 cursor-pointer"
+                                            title="Duplicate Food Item"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                                            </svg>
+                                        </button>
+                                        
+                                        <!-- Delete Row Button -->
+                                        <button 
+                                            type="button" 
+                                            hx-post="{{ request.url_for('delete_catalog_food', food_id=food.id) }}" 
+                                            hx-include="#food-row-{{ food.id }} input"
+                                            hx-confirm="Are you sure you want to delete '{{ food.name }}'? While historical logged macro values will be protected, the item name will be removed from your catalog and future search results."
+                                            class="p-1.5 rounded-lg border border-slate-800 bg-slate-900 text-rose-450 hover:text-white hover:bg-rose-600 transition-all font-bold flex items-center gap-1 cursor-pointer"
+                                            title="Delete Food Item"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="8" class="p-8 text-center text-slate-400 font-medium">
+                                No food items found. Use the Dashboard to search online databases or add foods.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination Controls -->
+    {% if total_pages > 1 %}
+        <div class="flex items-center justify-between bg-slate-900/20 border border-slate-800/40 px-4 py-3 rounded-xl">
+            <div class="flex-1 flex justify-between sm:hidden">
+                {% if page > 1 %}
+                    <a 
+                        href="{{ request.url_for('catalog_view') }}?page={{ page - 1 }}&query={{ query }}&filter={{ filter }}"
+                        class="relative inline-flex items-center px-4 py-2 border border-slate-850 text-xs font-bold rounded-lg text-slate-300 bg-slate-900 hover:text-white transition-colors"
+                    >
+                        Previous
+                    </a>
+                {% endif %}
+                {% if page < total_pages %}
+                    <a 
+                        href="{{ request.url_for('catalog_view') }}?page={{ page + 1 }}&query={{ query }}&filter={{ filter }}"
+                        class="ml-3 relative inline-flex items-center px-4 py-2 border border-slate-850 text-xs font-bold rounded-lg text-slate-300 bg-slate-900 hover:text-white transition-colors"
+                    >
+                        Next
+                    </a>
+                {% endif %}
+            </div>
+            
+            <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-xs text-slate-450 font-medium">
+                        Showing page <span class="font-bold text-white">{{ page }}</span> of <span class="font-bold text-white">{{ total_pages }}</span>
+                    </p>
+                </div>
+                
+                <div>
+                    <nav class="relative z-0 inline-flex rounded-lg shadow-sm -space-x-px bg-slate-950 p-1 border border-slate-800/80 gap-1" aria-label="Pagination">
+                        {% if page > 1 %}
+                            <a 
+                                href="{{ request.url_for('catalog_view') }}?page=1&query={{ query }}&filter={{ filter }}"
+                                class="relative inline-flex items-center px-2 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-900 transition-colors"
+                                title="First Page"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                                </svg>
+                            </a>
+                            <a 
+                                href="{{ request.url_for('catalog_view') }}?page={{ page - 1 }}&query={{ query }}&filter={{ filter }}"
+                                class="relative inline-flex items-center px-2 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-900 transition-colors"
+                                title="Previous Page"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                                </svg>
+                            </a>
+                        {% endif %}
+                        
+                        <!-- Page number links (up to 5 pages shown) -->
+                        {% for p in range(1, total_pages + 1) %}
+                            {% if p >= page - 2 and p <= page + 2 %}
+                                <a 
+                                    href="{{ request.url_for('catalog_view') }}?page={{ p }}&query={{ query }}&filter={{ filter }}"
+                                    class="relative inline-flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all {% if p == page %}bg-indigo-650 text-white shadow-sm{% else %}text-slate-450 hover:text-white hover:bg-slate-900{% endif %}"
+                                >
+                                    {{ p }}
+                                </a>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if page < total_pages %}
+                            <a 
+                                href="{{ request.url_for('catalog_view') }}?page={{ page + 1 }}&query={{ query }}&filter={{ filter }}"
+                                class="relative inline-flex items-center px-2 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-900 transition-colors"
+                                title="Next Page"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                                </svg>
+                            </a>
+                            <a 
+                                href="{{ request.url_for('catalog_view') }}?page={{ total_pages }}&query={{ query }}&filter={{ filter }}"
+                                class="relative inline-flex items-center px-2 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-900 transition-colors"
+                                title="Last Page"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                                </svg>
+                            </a>
+                        {% endif %}
+                    </nav>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Inline Javascript Helper for Row State -->
+<script>
+    function markRowDirty(foodId) {
+        const saveBtn = document.getElementById(`save-btn-${foodId}`);
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.classList.remove('opacity-40', 'cursor-not-allowed', 'bg-slate-800', 'text-slate-400', 'border-slate-700');
+            saveBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-500', 'text-white', 'border-indigo-500/50', 'shadow-md', 'cursor-pointer');
+        }
+    }
+    
+    function updateUnitHeaders(foodId, unit) {
+        const helperText = document.querySelector(`.row-unit-help-${foodId}`);
+        if (helperText) {
+            if (unit === 'g') {
+                helperText.textContent = 'per 100g';
+            } else {
+                helperText.textContent = 'per unit';
+            }
+        }
+    }
+</script>
+{% endblock %}

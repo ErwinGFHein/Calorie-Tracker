@@ -186,6 +186,26 @@ def init_db():
     );
     """)
     
+    # Check if foods needs migration for is_deleted
+    cursor.execute("PRAGMA table_info(foods);")
+    foods_columns = [col["name"] for col in cursor.fetchall()]
+    if "is_deleted" not in foods_columns:
+        logger.info("Adding is_deleted column to foods table...")
+        cursor.execute("ALTER TABLE foods ADD COLUMN is_deleted INTEGER DEFAULT 0;")
+        conn.commit()
+
+    # Create user_hidden_foods table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS user_hidden_foods (
+        user_id INTEGER NOT NULL,
+        food_id INTEGER NOT NULL,
+        PRIMARY KEY (user_id, food_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (food_id) REFERENCES foods(id) ON DELETE CASCADE
+    );
+    """)
+    conn.commit()
+
     # 2. Intake logs
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS logs (
@@ -244,16 +264,16 @@ def init_db():
     
     conn.commit()
     
-    # Pre-seed foods lookup catalog if empty
-    cursor.execute("SELECT COUNT(*) FROM foods;")
-    count = cursor.fetchone()[0]
-    if count == 0:
-        logger.info("Foods catalog is empty. Initializing pre-seeding...")
-        try:
-            seed_foods(conn)
-        except Exception as e:
-            logger.error(f"Failed to seed foods database: {e}")
-            seed_foods_fallback(conn)
+    # Pre-seed foods lookup catalog if empty (disabled per user preference)
+    # cursor.execute("SELECT COUNT(*) FROM foods;")
+    # count = cursor.fetchone()[0]
+    # if count == 0:
+    #     logger.info("Foods catalog is empty. Initializing pre-seeding...")
+    #     try:
+    #         seed_foods(conn)
+    #     except Exception as e:
+    #         logger.error(f"Failed to seed foods database: {e}")
+    #         seed_foods_fallback(conn)
             
     conn.close()
 

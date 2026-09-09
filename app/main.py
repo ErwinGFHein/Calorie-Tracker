@@ -193,6 +193,16 @@ def rename_user(request: Request, name: str = Form(...)):
     conn.close()
     return RedirectResponse(url=str(request.url_for('config_view')) + "?success=profile", status_code=status.HTTP_303_SEE_OTHER)
 
+def format_food_name(name: str, is_deleted: bool = False) -> str:
+    if is_deleted or name.startswith("[Deleted - "):
+        if name.startswith("[Deleted - "):
+            idx = name.find("]")
+            if idx != -1:
+                return "[Deleted] " + name[idx+1:].strip()
+            return "[Deleted] Food Item"
+        return f"[Deleted] {name}"
+    return name
+
 def get_daily_metrics(conn, user_id: int, date_str: str = None):
     if not date_str:
         date_str = datetime.now().strftime("%Y-%m-%d")
@@ -282,7 +292,8 @@ def get_grouped_history(conn, user_id: int, date_str: str = None):
             f.protein, 
             f.carbs, 
             f.fat, 
-            f.unit
+            f.unit,
+            f.is_deleted
         FROM logs l
         JOIN foods f ON l.food_id = f.id
         WHERE date(l.timestamp) = ? AND l.user_id = ?
@@ -301,7 +312,8 @@ def get_grouped_history(conn, user_id: int, date_str: str = None):
             f.protein, 
             f.carbs, 
             f.fat, 
-            f.unit
+            f.unit,
+            f.is_deleted
         FROM logs l
         JOIN foods f ON l.food_id = f.id
         WHERE l.user_id = ?
@@ -338,10 +350,12 @@ def get_grouped_history(conn, user_id: int, date_str: str = None):
         item_carbs = qty * row["carbs"]
         item_fat = qty * row["fat"]
         
+        formatted_name = format_food_name(row["name"], bool(row["is_deleted"]))
+        
         grouped[day_name]["items"].append({
             "log_id": row["log_id"],
             "food_id": row["food_id"],
-            "name": row["name"],
+            "name": formatted_name,
             "quantity": qty,
             "unit": row["unit"],
             "calories": round(item_cal, 1),
@@ -393,6 +407,7 @@ def get_calendar_days_data(conn, user_id: int, start_date, end_date, target_goal
     SELECT 
         date(l.timestamp) as log_date,
         f.name,
+        f.is_deleted,
         l.quantity * f.calories as calories
     FROM logs l
     JOIN foods f ON l.food_id = f.id
@@ -404,8 +419,9 @@ def get_calendar_days_data(conn, user_id: int, start_date, end_date, target_goal
         d_str = row["log_date"]
         if d_str not in items_by_date:
             items_by_date[d_str] = []
+        formatted_name = format_food_name(row["name"], bool(row["is_deleted"]))
         items_by_date[d_str].append({
-            "name": row["name"],
+            "name": formatted_name,
             "calories": round(row["calories"], 1)
         })
     
@@ -735,7 +751,11 @@ async def search_foods(request: Request, search_query: str = Form(""), search_on
     local_foods = []
     if not search_query.strip():
         # Display 5 common suggestions if query is empty
-        cursor.execute("SELECT id, name, calories, protein, carbs, fat, unit FROM foods ORDER BY name LIMIT 5;")
+        cursor.execute("""
+        SELECT id, name, calories, protein, carbs, fat, unit FROM foods 
+        WHERE is_deleted = 0 AND id NOT IN (SELECT food_id FROM user_hidden_foods WHERE user_id = ?)
+        ORDER BY name LIMIT 5;
+        """, (user_id,))
         local_results = cursor.fetchall()
         for r in local_results:
             local_foods.append({
@@ -753,10 +773,10 @@ async def search_foods(request: Request, search_query: str = Form(""), search_on
         cursor.execute("""
         SELECT id, name, calories, protein, carbs, fat, unit, fuzzy_match(?, name) AS score
         FROM foods 
-        WHERE fuzzy_match(?, name) > 0.5
+        WHERE is_deleted = 0 AND id NOT IN (SELECT food_id FROM user_hidden_foods WHERE user_id = ?) AND fuzzy_match(?, name) > 0.5
         ORDER BY score DESC
         LIMIT 10;
-        """, (search_query.strip(), search_query.strip()))
+        """, (search_query.strip(), user_id, search_query.strip()))
         local_results = cursor.fetchall()
         for r in local_results:
             local_foods.append({
@@ -921,7 +941,8 @@ def edit_log_view(request: Request, log_id: int, date: str = None):
             l.quantity, 
             l.timestamp,
             f.name, 
-            f.unit
+            f.unit,
+            f.is_deleted
         FROM logs l
         JOIN foods f ON l.food_id = f.id
         WHERE l.id = ? AND l.user_id = ?;
@@ -931,9 +952,10 @@ def edit_log_view(request: Request, log_id: int, date: str = None):
     if not row:
         return HTMLResponse(status_code=404, content="Log entry not found")
     
+    formatted_name = format_food_name(row["name"], bool(row["is_deleted"]))
     item = {
         "log_id": row["log_id"],
-        "name": row["name"],
+        "name": formatted_name,
         "quantity": row["quantity"],
         "unit": row["unit"],
         "time": row["timestamp"].split()[1][:5] if row["timestamp"] and len(row["timestamp"].split()) > 1 else ""
@@ -962,7 +984,8 @@ def normal_log_view(request: Request, log_id: int, date: str = None):
             f.protein,
             f.carbs,
             f.fat,
-            f.unit
+            f.unit,
+            f.is_deleted
         FROM logs l
         JOIN foods f ON l.food_id = f.id
         WHERE l.id = ? AND l.user_id = ?;
@@ -973,10 +996,11 @@ def normal_log_view(request: Request, log_id: int, date: str = None):
         return HTMLResponse(status_code=404, content="Log entry not found")
     
     qty = row["quantity"]
+    formatted_name = format_food_name(row["name"], bool(row["is_deleted"]))
     item = {
         "log_id": row["log_id"],
         "food_id": row["food_id"],
-        "name": row["name"],
+        "name": formatted_name,
         "quantity": qty,
         "unit": row["unit"],
         "calories": round(qty * row["calories"], 1),
@@ -1174,3 +1198,234 @@ async def ai_estimate_view(request: Request, ai_query: str = Form("")):
             <span class="text-[10px] text-slate-500 font-mono mt-1 block">{str(e)}</span>
         </div>
         """
+
+@app.get("/catalog", response_class=HTMLResponse)
+def catalog_view(
+    request: Request,
+    page: int = 1,
+    query: str = "",
+    filter: str = "visible"
+):
+    user_id = get_current_user_id(request)
+    if user_id is None:
+        return RedirectResponse(url=request.url_for('login_view'), status_code=status.HTTP_303_SEE_OTHER)
+        
+    limit = 15
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Base query filters
+    where_clauses = ["f.is_deleted = 0"]
+    params = []
+    
+    if query.strip():
+        where_clauses.append("f.name LIKE ?")
+        params.append(f"%{query.strip()}%")
+        
+    if filter == "visible":
+        where_clauses.append("f.id NOT IN (SELECT food_id FROM user_hidden_foods WHERE user_id = ?)")
+        params.append(user_id)
+    elif filter == "hidden":
+        where_clauses.append("f.id IN (SELECT food_id FROM user_hidden_foods WHERE user_id = ?)")
+        params.append(user_id)
+        
+    where_str = " AND ".join(where_clauses)
+    
+    # Get total count for pagination
+    count_query = f"SELECT COUNT(*) FROM foods f WHERE {where_str};"
+    cursor.execute(count_query, params)
+    total_items = cursor.fetchone()[0]
+    
+    total_pages = max(1, (total_items + limit - 1) // limit)
+    page = max(1, min(page, total_pages))
+    offset = (page - 1) * limit
+    
+    # Get paginated items
+    select_query = f"""
+    SELECT 
+        f.id, 
+        f.name, 
+        f.calories, 
+        f.protein, 
+        f.carbs, 
+        f.fat, 
+        f.unit,
+        (SELECT COUNT(*) FROM user_hidden_foods WHERE user_id = ? AND food_id = f.id) > 0 as is_hidden
+    FROM foods f 
+    WHERE {where_str}
+    ORDER BY f.name
+    LIMIT ? OFFSET ?;
+    """
+    cursor.execute(select_query, [user_id] + params + [limit, offset])
+    rows = cursor.fetchall()
+    
+    foods = []
+    for r in rows:
+        # Convert to 100g view for UI if unit is 'g'
+        is_g = r["unit"] == "g"
+        mult = 100.0 if is_g else 1.0
+        foods.append({
+            "id": r["id"],
+            "name": r["name"],
+            "calories": round(r["calories"] * mult, 2),
+            "protein": round(r["protein"] * mult, 2),
+            "carbs": round(r["carbs"] * mult, 2),
+            "fat": round(r["fat"] * mult, 2),
+            "unit": r["unit"],
+            "is_hidden": bool(r["is_hidden"])
+        })
+        
+    conn.close()
+    
+    return templates.TemplateResponse(request, "catalog.html", {
+        "active_tab": "catalog",
+        "foods": foods,
+        "page": page,
+        "query": query,
+        "filter": filter,
+        "total_pages": total_pages,
+        "total_items": total_items,
+        "current_user": get_user_details(user_id),
+        "all_users": get_all_users()
+    })
+
+@app.post("/catalog/update/{food_id}")
+def update_catalog_food(
+    request: Request,
+    food_id: int,
+    name: str = Form(...),
+    unit: str = Form(...),
+    calories: float = Form(...),
+    protein: float = Form(...),
+    carbs: float = Form(...),
+    fat: float = Form(...),
+    page: int = Form(1),
+    query: str = Form(""),
+    filter: str = Form("visible")
+):
+    user_id = get_current_user_id(request)
+    if user_id is None:
+        return HTMLResponse(content="<script>window.location.reload();</script>", status_code=200)
+        
+    # Scale back to per-1g standard if unit is 'g'
+    if unit == "g":
+        calories = calories / 100.0
+        protein = protein / 100.0
+        carbs = carbs / 100.0
+        fat = fat / 100.0
+        
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            UPDATE foods 
+            SET name = ?, unit = ?, calories = ?, protein = ?, carbs = ?, fat = ?
+            WHERE id = ?;
+        """, (name.strip(), unit, calories, protein, carbs, fat, food_id))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        pass
+    conn.close()
+    
+    redirect_url = str(request.url_for('catalog_view')) + f"?page={page}&query={query}&filter={filter}"
+    response = HTMLResponse(status_code=200)
+    response.headers["HX-Redirect"] = redirect_url
+    return response
+
+@app.post("/catalog/duplicate/{food_id}")
+def duplicate_catalog_food(
+    request: Request,
+    food_id: int,
+    page: int = Form(1),
+    query: str = Form(""),
+    filter: str = Form("visible")
+):
+    user_id = get_current_user_id(request)
+    if user_id is None:
+        return HTMLResponse(content="<script>window.location.reload();</script>", status_code=200)
+        
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT name, calories, protein, carbs, fat, unit FROM foods WHERE id = ?;", (food_id,))
+    row = cursor.fetchone()
+    if row:
+        base_name = row["name"]
+        copy_name = f"{base_name} (Copy)"
+        
+        idx = 1
+        name_to_try = copy_name
+        while True:
+            cursor.execute("SELECT id FROM foods WHERE name = ?;", (name_to_try,))
+            if not cursor.fetchone():
+                break
+            name_to_try = f"{base_name} (Copy {idx})"
+            idx += 1
+            
+        cursor.execute("""
+            INSERT INTO foods (name, calories, protein, carbs, fat, unit)
+            VALUES (?, ?, ?, ?, ?, ?);
+        """, (name_to_try, row["calories"], row["protein"], row["carbs"], row["fat"], row["unit"]))
+        conn.commit()
+    conn.close()
+    
+    redirect_url = str(request.url_for('catalog_view')) + f"?page={page}&query={query}&filter={filter}"
+    response = HTMLResponse(status_code=200)
+    response.headers["HX-Redirect"] = redirect_url
+    return response
+
+@app.post("/catalog/delete/{food_id}")
+def delete_catalog_food(
+    request: Request,
+    food_id: int,
+    page: int = Form(1),
+    query: str = Form(""),
+    filter: str = Form("visible")
+):
+    user_id = get_current_user_id(request)
+    if user_id is None:
+        return HTMLResponse(content="<script>window.location.reload();</script>", status_code=200)
+        
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT name FROM foods WHERE id = ?;", (food_id,))
+    row = cursor.fetchone()
+    if row:
+        new_name = f"[Deleted - {food_id}] {row['name']}"
+        cursor.execute("UPDATE foods SET is_deleted = 1, name = ? WHERE id = ?;", (new_name, food_id))
+        conn.commit()
+    conn.close()
+    
+    redirect_url = str(request.url_for('catalog_view')) + f"?page={page}&query={query}&filter={filter}"
+    response = HTMLResponse(status_code=200)
+    response.headers["HX-Redirect"] = redirect_url
+    return response
+
+@app.post("/catalog/toggle-visibility/{food_id}")
+def toggle_food_visibility(
+    request: Request,
+    food_id: int,
+    page: int = Form(1),
+    query: str = Form(""),
+    filter: str = Form("visible")
+):
+    user_id = get_current_user_id(request)
+    if user_id is None:
+        return HTMLResponse(content="<script>window.location.reload();</script>", status_code=200)
+        
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT 1 FROM user_hidden_foods WHERE user_id = ? AND food_id = ?;", (user_id, food_id))
+    is_hidden = cursor.fetchone()
+    if is_hidden:
+        cursor.execute("DELETE FROM user_hidden_foods WHERE user_id = ? AND food_id = ?;", (user_id, food_id))
+    else:
+        cursor.execute("INSERT INTO user_hidden_foods (user_id, food_id) VALUES (?, ?);", (user_id, food_id))
+    conn.commit()
+    conn.close()
+    
+    redirect_url = str(request.url_for('catalog_view')) + f"?page={page}&query={query}&filter={filter}"
+    response = HTMLResponse(status_code=200)
+    response.headers["HX-Redirect"] = redirect_url
+    return response
+
