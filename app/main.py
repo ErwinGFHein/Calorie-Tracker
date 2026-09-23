@@ -57,7 +57,7 @@ def get_current_user_id(request: Request) -> int:
     return None
 
 def get_user_details(user_id: int):
-    if not user_id:
+    if user_id is None:
         return None
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -1327,23 +1327,31 @@ def update_catalog_food(
         pass
     conn.close()
     
-    redirect_url = str(request.url_for('catalog_view')) + f"?page={page}&query={query}&filter={filter}"
+    redirect_url = f"catalog?page={page}&query={query}&filter={filter}"
     response = HTMLResponse(status_code=200)
     response.headers["HX-Redirect"] = redirect_url
     return response
 
 @app.post("/catalog/duplicate/{food_id}")
-def duplicate_catalog_food(
+async def duplicate_catalog_food(
     request: Request,
-    food_id: int,
-    page: int = Form(1),
-    query: str = Form(""),
-    filter: str = Form("visible")
+    food_id: int
 ):
     user_id = get_current_user_id(request)
     if user_id is None:
         return HTMLResponse(content="<script>window.location.reload();</script>", status_code=200)
         
+    form_data = {}
+    try:
+        form = await request.form()
+        form_data = dict(form)
+    except Exception:
+        pass
+        
+    page = request.query_params.get("page") or form_data.get("page", 1)
+    query = request.query_params.get("query") or form_data.get("query", "")
+    filter = request.query_params.get("filter") or form_data.get("filter", "visible")
+
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT name, calories, protein, carbs, fat, unit FROM foods WHERE id = ?;", (food_id,))
@@ -1368,23 +1376,31 @@ def duplicate_catalog_food(
         conn.commit()
     conn.close()
     
-    redirect_url = str(request.url_for('catalog_view')) + f"?page={page}&query={query}&filter={filter}"
+    redirect_url = f"catalog?page={page}&query={query}&filter={filter}"
     response = HTMLResponse(status_code=200)
     response.headers["HX-Redirect"] = redirect_url
     return response
 
 @app.post("/catalog/delete/{food_id}")
-def delete_catalog_food(
+async def delete_catalog_food(
     request: Request,
-    food_id: int,
-    page: int = Form(1),
-    query: str = Form(""),
-    filter: str = Form("visible")
+    food_id: int
 ):
     user_id = get_current_user_id(request)
     if user_id is None:
         return HTMLResponse(content="<script>window.location.reload();</script>", status_code=200)
         
+    form_data = {}
+    try:
+        form = await request.form()
+        form_data = dict(form)
+    except Exception:
+        pass
+        
+    page = request.query_params.get("page") or form_data.get("page", 1)
+    query = request.query_params.get("query") or form_data.get("query", "")
+    filter = request.query_params.get("filter") or form_data.get("filter", "visible")
+
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -1396,23 +1412,31 @@ def delete_catalog_food(
         conn.commit()
     conn.close()
     
-    redirect_url = str(request.url_for('catalog_view')) + f"?page={page}&query={query}&filter={filter}"
+    redirect_url = f"catalog?page={page}&query={query}&filter={filter}"
     response = HTMLResponse(status_code=200)
     response.headers["HX-Redirect"] = redirect_url
     return response
 
 @app.post("/catalog/toggle-visibility/{food_id}")
-def toggle_food_visibility(
+async def toggle_food_visibility(
     request: Request,
-    food_id: int,
-    page: int = Form(1),
-    query: str = Form(""),
-    filter: str = Form("visible")
+    food_id: int
 ):
     user_id = get_current_user_id(request)
     if user_id is None:
         return HTMLResponse(content="<script>window.location.reload();</script>", status_code=200)
         
+    form_data = {}
+    try:
+        form = await request.form()
+        form_data = dict(form)
+    except Exception:
+        pass
+        
+    page = request.query_params.get("page") or form_data.get("page", 1)
+    query = request.query_params.get("query") or form_data.get("query", "")
+    filter = request.query_params.get("filter") or form_data.get("filter", "visible")
+
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT 1 FROM user_hidden_foods WHERE user_id = ? AND food_id = ?;", (user_id, food_id))
@@ -1424,7 +1448,7 @@ def toggle_food_visibility(
     conn.commit()
     conn.close()
     
-    redirect_url = str(request.url_for('catalog_view')) + f"?page={page}&query={query}&filter={filter}"
+    redirect_url = f"catalog?page={page}&query={query}&filter={filter}"
     response = HTMLResponse(status_code=200)
     response.headers["HX-Redirect"] = redirect_url
     return response

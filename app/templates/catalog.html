@@ -20,19 +20,19 @@
             <!-- Filter Options (Visible / Hidden / All) -->
             <div class="inline-flex bg-slate-950 p-1 rounded-xl border border-slate-800/80">
                 <a 
-                    href="{{ request.url_for('catalog_view') }}?page=1&query={{ query }}&filter=visible"
+                    href="catalog?page=1&query={{ query }}&filter=visible"
                     class="px-3 py-1.5 text-xs font-bold rounded-lg transition-all {% if filter == 'visible' %}bg-indigo-650 text-white shadow-md{% else %}text-slate-400 hover:text-slate-200{% endif %}"
                 >
                     Visible Only
                 </a>
                 <a 
-                    href="{{ request.url_for('catalog_view') }}?page=1&query={{ query }}&filter=hidden"
+                    href="catalog?page=1&query={{ query }}&filter=hidden"
                     class="px-3 py-1.5 text-xs font-bold rounded-lg transition-all {% if filter == 'hidden' %}bg-indigo-650 text-white shadow-md{% else %}text-slate-400 hover:text-slate-200{% endif %}"
                 >
                     Hidden Only
                 </a>
                 <a 
-                    href="{{ request.url_for('catalog_view') }}?page=1&query={{ query }}&filter=all"
+                    href="catalog?page=1&query={{ query }}&filter=all"
                     class="px-3 py-1.5 text-xs font-bold rounded-lg transition-all {% if filter == 'all' %}bg-indigo-650 text-white shadow-md{% else %}text-slate-400 hover:text-slate-200{% endif %}"
                 >
                     All Foods
@@ -51,7 +51,7 @@
                 value="{{ query }}"
                 placeholder="Search catalog by food name..." 
                 class="w-full px-4 py-2.5 pl-10 rounded-xl bg-slate-900/60 border border-slate-800/80 focus:border-indigo-500/50 text-slate-100 text-sm placeholder-slate-500 focus:outline-none transition-colors"
-                hx-get="{{ request.url_for('catalog_view') }}"
+                hx-get="catalog"
                 hx-trigger="keyup changed delay:300ms"
                 hx-target="body"
                 hx-push-url="true"
@@ -92,13 +92,12 @@
                     {% if foods %}
                         {% for food in foods %}
                             <tr id="food-row-{{ food.id }}" class="hover:bg-slate-900/35 transition-all group">
-                                <!-- Hidden inputs to preserve page state in action submissions -->
-                                <input type="hidden" name="page" value="{{ page }}">
-                                <input type="hidden" name="query" value="{{ query }}">
-                                <input type="hidden" name="filter" value="{{ filter }}">
-                                
                                 <!-- Name Input -->
                                 <td class="p-2.5 pl-4">
+                                    <!-- Hidden inputs to preserve page state in action submissions -->
+                                    <input type="hidden" name="page" value="{{ page }}">
+                                    <input type="hidden" name="query" value="{{ query }}">
+                                    <input type="hidden" name="filter" value="{{ filter }}">
                                     <input 
                                         type="text" 
                                         name="name" 
@@ -187,8 +186,7 @@
                                 <td class="p-2.5 text-center">
                                     <button 
                                         type="button"
-                                        hx-post="{{ request.url_for('toggle_food_visibility', food_id=food.id) }}"
-                                        hx-include="#food-row-{{ food.id }} input"
+                                        hx-post="catalog/toggle-visibility/{{ food.id }}?page={{ page }}&query={{ query }}&filter={{ filter }}"
                                         class="p-1.5 rounded-lg border transition-all text-xs font-bold tracking-wider inline-flex items-center gap-1 cursor-pointer select-none {% if food.is_hidden %}bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20{% else %}bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20{% endif %}"
                                         title="Toggle search visibility for your user"
                                     >
@@ -214,7 +212,7 @@
                                         <button 
                                             type="button" 
                                             id="save-btn-{{ food.id }}"
-                                            hx-post="{{ request.url_for('update_catalog_food', food_id=food.id) }}" 
+                                            hx-post="catalog/update/{{ food.id }}" 
                                             hx-include="#food-row-{{ food.id }} input, #food-row-{{ food.id }} select"
                                             class="px-2 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 opacity-40 cursor-not-allowed transition-all font-bold flex items-center gap-1"
                                             disabled
@@ -228,8 +226,7 @@
                                         <!-- Duplicate Row Button -->
                                         <button 
                                             type="button" 
-                                            hx-post="{{ request.url_for('duplicate_catalog_food', food_id=food.id) }}" 
-                                            hx-include="#food-row-{{ food.id }} input"
+                                            hx-post="catalog/duplicate/{{ food.id }}?page={{ page }}&query={{ query }}&filter={{ filter }}" 
                                             class="p-1.5 rounded-lg border border-slate-800 bg-slate-900 text-indigo-400 hover:text-white hover:bg-indigo-650 transition-all font-bold flex items-center gap-1 cursor-pointer"
                                             title="Duplicate Food Item"
                                         >
@@ -241,9 +238,7 @@
                                         <!-- Delete Row Button -->
                                         <button 
                                             type="button" 
-                                            hx-post="{{ request.url_for('delete_catalog_food', food_id=food.id) }}" 
-                                            hx-include="#food-row-{{ food.id }} input"
-                                            hx-confirm="Are you sure you want to delete '{{ food.name }}'? While historical logged macro values will be protected, the item name will be removed from your catalog and future search results."
+                                            hx-post="catalog/delete/{{ food.id }}?page={{ page }}&query={{ query }}&filter={{ filter }}" 
                                             class="p-1.5 rounded-lg border border-slate-800 bg-slate-900 text-rose-450 hover:text-white hover:bg-rose-600 transition-all font-bold flex items-center gap-1 cursor-pointer"
                                             title="Delete Food Item"
                                         >
@@ -273,7 +268,7 @@
             <div class="flex-1 flex justify-between sm:hidden">
                 {% if page > 1 %}
                     <a 
-                        href="{{ request.url_for('catalog_view') }}?page={{ page - 1 }}&query={{ query }}&filter={{ filter }}"
+                        href="catalog?page={{ page - 1 }}&query={{ query }}&filter={{ filter }}"
                         class="relative inline-flex items-center px-4 py-2 border border-slate-850 text-xs font-bold rounded-lg text-slate-300 bg-slate-900 hover:text-white transition-colors"
                     >
                         Previous
@@ -281,7 +276,7 @@
                 {% endif %}
                 {% if page < total_pages %}
                     <a 
-                        href="{{ request.url_for('catalog_view') }}?page={{ page + 1 }}&query={{ query }}&filter={{ filter }}"
+                        href="catalog?page={{ page + 1 }}&query={{ query }}&filter={{ filter }}"
                         class="ml-3 relative inline-flex items-center px-4 py-2 border border-slate-850 text-xs font-bold rounded-lg text-slate-300 bg-slate-900 hover:text-white transition-colors"
                     >
                         Next
@@ -300,7 +295,7 @@
                     <nav class="relative z-0 inline-flex rounded-lg shadow-sm -space-x-px bg-slate-950 p-1 border border-slate-800/80 gap-1" aria-label="Pagination">
                         {% if page > 1 %}
                             <a 
-                                href="{{ request.url_for('catalog_view') }}?page=1&query={{ query }}&filter={{ filter }}"
+                                href="catalog?page=1&query={{ query }}&filter={{ filter }}"
                                 class="relative inline-flex items-center px-2 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-900 transition-colors"
                                 title="First Page"
                             >
@@ -309,7 +304,7 @@
                                 </svg>
                             </a>
                             <a 
-                                href="{{ request.url_for('catalog_view') }}?page={{ page - 1 }}&query={{ query }}&filter={{ filter }}"
+                                href="catalog?page={{ page - 1 }}&query={{ query }}&filter={{ filter }}"
                                 class="relative inline-flex items-center px-2 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-900 transition-colors"
                                 title="Previous Page"
                             >
@@ -323,7 +318,7 @@
                         {% for p in range(1, total_pages + 1) %}
                             {% if p >= page - 2 and p <= page + 2 %}
                                 <a 
-                                    href="{{ request.url_for('catalog_view') }}?page={{ p }}&query={{ query }}&filter={{ filter }}"
+                                    href="catalog?page={{ p }}&query={{ query }}&filter={{ filter }}"
                                     class="relative inline-flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all {% if p == page %}bg-indigo-650 text-white shadow-sm{% else %}text-slate-450 hover:text-white hover:bg-slate-900{% endif %}"
                                 >
                                     {{ p }}
@@ -333,7 +328,7 @@
                         
                         {% if page < total_pages %}
                             <a 
-                                href="{{ request.url_for('catalog_view') }}?page={{ page + 1 }}&query={{ query }}&filter={{ filter }}"
+                                href="catalog?page={{ page + 1 }}&query={{ query }}&filter={{ filter }}"
                                 class="relative inline-flex items-center px-2 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-900 transition-colors"
                                 title="Next Page"
                             >
@@ -342,7 +337,7 @@
                                 </svg>
                             </a>
                             <a 
-                                href="{{ request.url_for('catalog_view') }}?page={{ total_pages }}&query={{ query }}&filter={{ filter }}"
+                                href="catalog?page={{ total_pages }}&query={{ query }}&filter={{ filter }}"
                                 class="relative inline-flex items-center px-2 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-900 transition-colors"
                                 title="Last Page"
                             >
